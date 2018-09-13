@@ -15,6 +15,7 @@
       </head>
   
       <body onload="start();">
+        <!-- <body> -->
           <div id="overlay" class="overlay" onclick="SideNavController.toggle();"></div>
   
           <nav>
@@ -53,13 +54,13 @@
               </header>
   
               <main>
-                  <!-- <nav id="items" class="itemnav">
-                          <button type="button" onclick="PlaceItemController.place(new {$ioobjectName});">
+                  <nav id="items" class="itemnav">
+                          <!-- <button type="button" onclick="PlaceItemController.place(new {$ioobjectName});">
                               <img src="img/icons/{$dir}/{$imageName}.svg" ondragend="PlaceItemController.onDragEnd(event);" alt="{$displayName}" />
                               <br/>
-                          </button>
-                  </nav> -->
-                  <div id="open-items-tab" class="tab" onclick="ItemNavController.toggle();"> &#9776; </div>
+                          </button> -->
+                  </nav>
+                  <!-- <div id="open-items-tab" class="tab" onclick="ItemNavController.toggle();"> &#9776; </div> -->
   
                   <canvas id="canvas" class="canvas"></canvas>
   

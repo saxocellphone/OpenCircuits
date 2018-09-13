@@ -1,82 +1,7993 @@
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,t){for(var r=0;r<t.length;r++){var i=t[r];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(e,i.key,i)}}return function(t,r,i){return r&&e(t.prototype,r),i&&e(t,i),t}}(),CircuitDesigner=function(){function e(t,r,i){var s=this;_classCallCheck(this,e),this.renderer=new Renderer(this,t,r,i),this.camera=new Camera(this),this.history=new HistoryManager,this.wires=[],this.objects=[],this.propogationQueue=[],window.addEventListener("resize",function(e){return s.resize()},!1),this.resize()}return _createClass(e,[{key:"reset",value:function(){for(e=0;e<this.objects.length;e++)this.objects[e].remove();for(var e=0;e<this.wires.length;e++)this.wires[e].remove();this.objects=[],this.wires=[],this.propogationQueue=[]}},{key:"propogate",value:function(e,t,r){var i=this;this.propogationQueue.push(new Propogation(e,t,r,function(){return i.update(e,t)}))}},{key:"update",value:function(e,t){for(var r=this,i=[];this.propogationQueue.length>0;)i.push(this.propogationQueue.pop());for(;i.length>0;)i.pop().send();this.propogationQueue.length>0&&updateRequests++,updateRequests--,console.log("update");var s=!1;if(e instanceof Wire||t instanceof Wire){for(var n=0;n<this.wires.length;n++)if(this.wires[n]===e||this.wires[n]===t){s=!0;break}}else render();s&&render(),updateRequests>0&&setTimeout(function(){return r.update(e,t)},PROPOGATION_TIME)}},{key:"render",value:function(){this.renderer.clear();var e=GRID_SIZE/this.camera.zoom,t=V(this.camera.pos.x/this.camera.zoom-this.renderer.canvas.width/2,this.camera.pos.y/this.camera.zoom-this.renderer.canvas.height/2),r=t.x-Math.floor(t.x/e)*e;r<0&&(r+=e);var i=t.y-Math.floor(t.y/e)*e;i<0&&(i+=e),this.renderer.save(),this.renderer.setStyles(void 0,"#999",1/this.camera.zoom),this.renderer.context.beginPath();for(var s=-r;s<=this.renderer.canvas.width-r+e;s+=e)this.renderer._line(s,0,s,this.renderer.canvas.height);for(var n=-i;n<=this.renderer.canvas.height-i+e;n+=e)this.renderer._line(0,n,this.renderer.canvas.width,n);this.renderer.context.closePath(),this.renderer.context.stroke(),this.renderer.restore();for(a=0;a<this.wires.length;a++)this.camera.cull(this.wires[a].getCullBox())&&this.wires[a].draw();for(var a=0;a<this.objects.length;a++)this.camera.cull(this.objects[a].getCullBox())&&this.objects[a].draw();CurrentTool.draw(this.renderer)}},{key:"resize",value:function(){this.renderer.resize(),this.camera.resize(),render()}},{key:"addObject",value:function(e){-1===this.getIndexOfObject(e)?this.objects.push(e):console.error("Attempted to add an object that already existed!")}},{key:"addWire",value:function(e){-1===this.getIndexOfWire(e)?this.wires.push(e):console.error("Attempted to add a wire that already existed!")}},{key:"getRenderer",value:function(){return this.renderer}},{key:"getObjects",value:function(){return this.objects}},{key:"getWires",value:function(){return this.wires}},{key:"getIndexOfObject",value:function(e){for(var t=0;t<this.objects.length;t++)if(e===this.objects[t])return t;return-1}},{key:"getIndexOfWire",value:function(e){for(var t=0;t<this.wires.length;t++)if(e===this.wires[t])return t;return-1}}]),e}();
-"use strict";function _classCallCheck(t,i){if(!(t instanceof i))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,i){for(var e=0;e<i.length;e++){var s=i[e];s.enumerable=s.enumerable||!1,s.configurable=!0,"value"in s&&(s.writable=!0),Object.defineProperty(t,s.key,s)}}return function(i,e,s){return e&&t(i.prototype,e),s&&t(i,s),i}}(),ICDesigner=function(){function t(){_classCallCheck(this,t),this.canvas=document.getElementById("designer-canvas"),this.designer=new CircuitDesigner(this.canvas,.84,.76),this.context=new Context(this.designer),this.ic=void 0,this.data=void 0,this.drag=!1,this.dragObj=void 0,this.dragEdge=void 0,this.disabled=!0,this.confirmButton=document.getElementById("ic-confirmbutton"),this.cancelButton=document.getElementById("ic-cancelbutton"),this.hide()}return _createClass(t,[{key:"confirm",value:function(){if(void 0!=this.ic){ICData.add(this.data);var t=this.ic.copy();t.setContext(context),context.getDesigner().addObject(t),this.hide()}}},{key:"cancel",value:function(){void 0!=this.ic&&this.hide()}},{key:"show",value:function(t){currentContext=this.context,this.disabled=!1,TransformController.disabled=!0,WireController.disabled=!0,SelectionBox.disabled=!0,this.hidden=!1,this.canvas.style.visibility="visible",this.confirmButton.style.visibility="visible",this.cancelButton.style.visibility="visible",ItemNavController.isOpen&&ItemNavController.toggle(),popup.hide(),this.data=ICData.create(t),this.ic=new IC(this.context,this.data,0,0),this.designer.addObject(this.ic),selectionTool.deselectAll(),this.context.getCamera().zoom=.5+.1*(this.ic.transform.size.x-50)/20,render()}},{key:"hide",value:function(){currentContext=context,this.disabled=!0,TransformController.disabled=!1,WireController.disabled=!1,SelectionBox.disabled=!1,this.hidden=!0,this.canvas.style.visibility="hidden",this.confirmButton.style.visibility="hidden",this.cancelButton.style.visibility="hidden",void 0!=this.ic&&(this.ic.remove(),this.ic=void 0,this.data=void 0),render()}},{key:"onMouseDown",value:function(){if(void 0==this.ic)return!1;for(var t=Input.getWorldMousePos(),i=this.ic.inputs,e=0;e<i.length;e++){if(i[e].sContains(t))return this.drag=!0,this.dragObj=this.data.iports[e],!0}for(var s=this.ic.outputs,e=0;e<s.length;e++){if(s[e].sContains(t))return this.drag=!0,this.dragObj=this.data.oports[e],!0}var n=this.ic.getPos(),a=this.ic.getSize(),o=new Transform(n,a.scale(1.2),0,this.context.getCamera()),r=new Transform(n,a.scale(.8),0,this.context.getCamera());return rectContains(o,t)&&!rectContains(r,t)?(t.y<n.y+a.y/2-4&&t.y>n.y-a.y/2+4?this.dragEdge="horizontal":this.dragEdge="vertical",!0):void 0}},{key:"onMouseUp",value:function(){if(void 0==this.ic)return!1;this.drag=!1,this.dragObj=void 0,this.dragEdge=void 0}},{key:"onMouseMove",value:function(){if(void 0==this.ic)return!1;var t=Input.getWorldMousePos();if(this.drag){var i=this.ic.getSize(),e=getNearestPointOnRect(V(-i.x/2,-i.y/2),V(i.x/2,i.y/2),t),s=e.sub(t).normalize().scale(i.scale(.5)).add(e),n=e.sub(t).normalize().scale(i.scale(.5).sub(V(IO_PORT_LENGTH+i.x/2-25,IO_PORT_LENGTH+i.y/2-25))).add(e);return this.dragObj.setOrigin(s),this.dragObj.setTarget(n),this.ic.update(),!0}return void 0!=this.dragEdge?("horizontal"===this.dragEdge?this.data.transform.setWidth(Math.abs(2*t.x)):this.data.transform.setHeight(Math.abs(2*t.y)),this.data.recalculatePorts(),this.ic.update(),!0):void 0}},{key:"onClick",value:function(){}}]),t}();
-"use strict";function start(){var e=new CircuitDesigner(document.getElementById("canvas"));context=new Context(e),currentContext=context,popup=new SelectionPopup,icdesigner=new ICDesigner,contextmenu=new ContextMenu,Input.registerContext(context),Input.registerContext(icdesigner.context),Input.addMouseListener(icdesigner),Input.addMouseListener(TransformController),Input.addMouseListener(WireController),Input.addMouseListener(SelectionBox),selectionTool.activate(),loadImage(images,["constLow.svg","constHigh.svg","buttonUp.svg","buttonDown.svg","switchUp.svg","switchDown.svg","led.svg","ledLight.svg","buffer.svg","and.svg","or.svg","xor.svg","segment1.svg","segment2.svg","segment3.svg","segment4.svg","clock.svg","clockOn.svg","keyboard.svg","base.svg"],0,onFinishLoading)}function wire(e,n){var t=new Wire(getCurrentContext(),e);e.connect(t),t.connect(n)}function reset(){ICData.ICs=[],currentContext=context,context.reset()}function onFinishLoading(){render()}function render(){0===renderQueue&&requestAnimationFrame(actualRender),renderQueue++}function actualRender(){renderQueue=0,getCurrentContext().render()}function loadImage(e,n,t,o){var r=new Image;r.onload=function(){e[n[t]]=r,r.dx=0,r.dy=0,r.ratio=r.width/r.height,t===n.length-1?o(e):loadImage(e,n,t+1,o)},r.src="img/items/"+n[t]}var popup,contextmenu,icdesigner,context,currentContext,images=[],browser=getBrowser(),saved=!0;window.onbeforeunload=function(e){if(!saved){return e.returnValue="You have unsaved changes.","You have unsaved changes."}};var renderQueue=0;
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var n=e[i];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,i,n){return i&&t(e.prototype,i),n&&t(e,n),e}}(),Renderer=function(){function t(e,i,n,s){_classCallCheck(this,t),this.parent=e,this.canvas=i,this.tintCanvas=document.createElement("canvas"),this.vw=void 0==n?1:n,this.vh=void 0==s?1:s,this.context=this.canvas.getContext("2d"),this.tintCanvas.width=100,this.tintCanvas.height=100,this.tintContext=this.tintCanvas.getContext("2d")}return _createClass(t,[{key:"getCamera",value:function(){return this.parent.camera}},{key:"setCursor",value:function(t){this.canvas.style.cursor=t}},{key:"resize",value:function(){this.canvas.width=window.innerWidth*this.vw,this.canvas.height=window.innerHeight*this.vh}},{key:"clear",value:function(){this.context.clearRect(0,0,this.canvas.width,this.canvas.height)}},{key:"save",value:function(){this.context.save()}},{key:"restore",value:function(){this.context.restore()}},{key:"translate",value:function(t){this.context.translate(t.x,t.y)}},{key:"scale",value:function(t){this.context.scale(t.x,t.y)}},{key:"rotate",value:function(t){this.context.rotate(t)}},{key:"rect",value:function(t,e,i,n,s,o,h,a){this.save(),this.setStyles(s,o,h,a),this.context.beginPath(),this.context.rect(t-i/2,e-n/2,i,n),this.context.fill(),(h>0||void 0==h)&&this.context.stroke(),this.context.closePath(),this.restore()}},{key:"circle",value:function(t,e,i,n,s,o,h){this.save(),this.setStyles(n,s,o,h),this.context.beginPath(),this.context.arc(t,e,i,0,2*Math.PI),void 0!=n&&this.context.fill(),(o>0||void 0==o)&&this.context.stroke(),this.context.closePath(),this.restore()}},{key:"image",value:function(t,e,i,n,s,o){this.context.drawImage(t,e-n/2,i-s/2,n,s),void 0!=o&&this.tintImage(t,e,i,n,s,o)}},{key:"tintImage",value:function(t,e,i,n,s,o){this.tintContext.clearRect(0,0,this.tintCanvas.width,this.tintCanvas.height),this.tintContext.fillStyle=o,this.tintContext.fillRect(0,0,this.tintCanvas.width,this.tintCanvas.height),"Firefox"!==browser.name?this.tintContext.globalCompositeOperation="destination-atop":this.tintContext.globalCompositeOperation="source-atop",this.tintContext.drawImage(t,0,0,this.tintCanvas.width,this.tintCanvas.height),this.context.globalAlpha=.5,this.context.drawImage(this.tintCanvas,e-n/2,i-s/2,n,s),this.context.globalAlpha=1}},{key:"text",value:function(t,e,i,n,s,o){this.save(),this.context.font="lighter 15px arial",this.context.fillStyle="#000",this.context.textAlign=o,this.context.textBaseline="middle",this.context.fillText(t,e,i),this.restore()}},{key:"getTextWidth",value:function(t){var e=0;return this.save(),this.context.font="lighter 15px arial",this.context.fillStyle="#000",this.context.textBaseline="middle",e=this.context.measureText(t).width,this.restore(),e}},{key:"line",value:function(t,e,i,n,s,o){this.save(),this.setStyles(void 0,s,o),this.context.beginPath(),this.context.moveTo(t,e),this.context.lineTo(i,n),this.context.stroke(),this.context.closePath(),this.restore()}},{key:"_line",value:function(t,e,i,n){this.context.moveTo(t,e),this.context.lineTo(i,n)}},{key:"curve",value:function(t,e,i,n,s,o,h,a,c,l){this.save(),this.setStyles(void 0,c,l),this.context.beginPath(),this.context.moveTo(t,e),this.context.bezierCurveTo(s,o,h,a,i,n),this.context.stroke(),this.context.closePath(),this.restore()}},{key:"quadCurve",value:function(t,e,i,n,s,o,h,a){this.save(),this.setStyles(void 0,h,a),this.context.beginPath(),this.context.moveTo(t,e),this.context.quadraticCurveTo(s,o,i,n),this.context.stroke(),this.context.closePath(),this.restore()}},{key:"shape",value:function(t,e,i,n){this.save(),this.setStyles(e,i,n),this.context.beginPath(),this.context.moveTo(t[0].x,t[0].y);for(var s=1;s<t.length;s++)this.context.lineTo(t[s].x,t[s].y);this.context.lineTo(t[0].x,t[0].y),this.context.fill(),this.context.closePath(),n>0&&this.context.stroke(),this.restore()}},{key:"setStyles",value:function(t,e,i,n){void 0!=n&&n!==this.context.globalAlpha&&(this.context.globalAlpha=n),void 0!=(t=void 0==t?"#ffffff":t)&&t!==this.context.fillStyle&&(this.context.fillStyle=t),void 0!=(e=void 0==e?"#000000":e)&&e!==this.context.strokeStyle&&(this.context.strokeStyle=e),void 0!=(i=void 0==i?2:i)&&i!==this.context.lineWidth&&(this.context.lineWidth=i)}}]),t}();
-"use strict";function createChildNode(e,t){var r=Exporter.ROOT.createElement(t);return e.appendChild(r),r}function createTextElement(e,t,r){var i=Exporter.ROOT.createElement(t),o=Exporter.ROOT.createTextNode(r);i.appendChild(o),e.appendChild(i)}var Exporter=function(){var e=document.getElementById("project-name");return{ROOT:void 0,saveFile:function(){var t=this.write(getCurrentContext()),r=e.value;"Untitled Circuit*"===r&&(r="Untitled Circuit");var i=r+".circuit",o=new Blob([t],{type:"text/plain"});if(window.navigator.msSaveOrOpenBlob)window.navigator.msSaveOrOpenBlob(o,i),saved=!0;else{var n=document.createElement("a"),a=URL.createObjectURL(o);n.href=a,n.download=i,document.body.appendChild(n),n.click(),setTimeout(function(){document.body.removeChild(n),window.URL.revokeObjectURL(a),saved=!0},0)}},write:function(e){var t=(new window.DOMParser).parseFromString('<?xml version="1.0" encoding="UTF-8"?><project></project>',"text/xml");this.ROOT=t;var r=e.getObjects(),i=e.getWires(),o=getChildNode(t,"project"),n=createChildNode(o,"ics");return this.writeICs(n),this.writeGroup(o,r,i),t.xml?t.xml:(new XMLSerializer).serializeToString(t)},writeGroup:function(e,t,r){for(var i=createChildNode(e,"objects"),o=createChildNode(e,"wires"),n=0;n<t.length;n++)t[n].writeTo(i);for(n=0;n<r.length;n++)r[n].writeTo(o)},writeICs:function(e){for(var t=0;t<ICData.ICs.length;t++){var r=ICData.ICs[t],i=createChildNode(e,"ic");createTextElement(i,"icuid",r.icuid),createTextElement(i,"width",r.transform.size.x),createTextElement(i,"height",r.transform.size.y);for(var o=createChildNode(i,"iports"),n=0;n<r.iports.length;n++)r.iports[n].writeTo(o);for(var a=createChildNode(i,"oports"),n=0;n<r.oports.length;n++)r.oports[n].writeTo(a);var c=createChildNode(i,"components"),d=r.inputs.concat(r.components,r.outputs),l=getAllWires(d);this.writeGroup(c,d,l)}}}}();
-"use strict";function getChildNode(e,t){for(var o=0;o<e.childNodes.length;o++)if(e.childNodes[o].nodeName===t)return e.childNodes[o]}function getChildrenByTagName(e,t){for(var o=[],r=0;r<e.childNodes.length;r++)e.childNodes[r].nodeName===t&&o.push(e.childNodes[r]);return o}function getBooleanValue(e,t){return void 0==e?t:"true"===e.childNodes[0].nodeValue}function getIntValue(e,t){return void 0==e?t:parseInt(e.childNodes[0].nodeValue)}function getFloatValue(e,t){return void 0==e?t:parseFloat(e.childNodes[0].nodeValue)}function getStringValue(e,t){return void 0==e?t:e.childNodes[0].nodeValue}var Importer=function(){var e=document.getElementById("file-input");return{types:[],openFile:function(){if(confirm("Are you sure you want to overwrite your current scene?")){reset();var t=new FileReader;t.onload=function(e){Importer.load(t.result,getCurrentContext()),render()},t.readAsText(e.files[0])}},load:function(e,t){var o=(new window.DOMParser).parseFromString(e,"text/xml");if("parsererror"!=o.documentElement.nodeName){var r=getChildNode(o,"project"),n=getChildNode(r,"ics"),d=this.loadICs(n,t),i=this.loadGroup(r,t,d);t.addObjects(i.objects),t.addWires(i.wires);for(var a=0;a<d.length;a++)ICData.add(d[a]);return t.redistributeUIDs(),ICData.redistributeUIDs(),i}},loadGroup:function(e,t,o){for(var r=getChildNode(e,"objects"),n=getChildNode(e,"wires"),d=[],i=[],a=0;a<this.types.length;a++)for(var l=this.types[a],s=getChildrenByTagName(r,l.getXMLName()),u=0;u<s.length;u++)d.push(new l(t).load(s[u],o));for(var h=getChildrenByTagName(n,"wire"),a=0;a<h.length;a++)i.push(new Wire(t).load(h[a]));for(a=0;a<i.length;a++)i[a].loadConnections(h[a],d);return{objects:d,wires:i}},loadICs:function(e,t){for(var o=[],r=getChildrenByTagName(e,"ic"),n=0;n<r.length;n++){var d=r[n],i=getIntValue(getChildNode(d,"icuid")),a=getIntValue(getChildNode(d,"width")),l=getIntValue(getChildNode(d,"height")),s=getChildNode(d,"components"),u=this.loadGroup(s,t,o),h=ICData.create(u.objects);h.icuid=i,h.transform.setSize(V(a,l));for(var g=getChildrenByTagName(getChildNode(d,"iports"),"iport"),c=0;c<g.length;c++)h.iports[c]=(new IPort).load(g[c]);for(var N=getChildrenByTagName(getChildNode(d,"oports"),"oport"),c=0;c<N.length;c++)h.oports[c]=(new OPort).load(N[c]);o.push(h)}return o}}}();
-"use strict";var Input=function(){var e=new Vector(0,0),n=new Vector(0,0),t=new Vector(0,0),o=new Vector(0,0),r=!1,a=void 0,u=[],c=!1,i=!1,s=!1,d=!1,l=void 0;console.log(c);var v=function(c){var i=getCurrentContext().getRenderer().canvas,v=getCurrentContext().getCamera(),g=i.getBoundingClientRect();t.x=n.x,t.y=n.y,e=new Vector(c.clientX,c.clientY),n=new Vector(c.clientX-g.left,c.clientY-g.top),o=v.getWorldPos(n),d=r&&Date.now()-l>50;var f=!1;if(s&&d){var C=new Vector(n.x,n.y),w=a.sub(C);v.translate(v.zoom*w.x,v.zoom*w.y),a=n,popup.onMove(),f=!0}f=CurrentTool.onMouseMove(f)||f;for(var E=0;E<u.length;E++){var m=u[E];!m.disabled&&m.onMouseMove(f)&&(f=!0)}f&&render()},g=function(e){r=!1;var n=!1;n=CurrentTool.onMouseUp(n);for(var t=0;t<u.length;t++){var o=u[t];!o.disabled&&o.onMouseUp(n)&&(n=!0)}n&&render()},f=function(e){var n=!1;n=CurrentTool.onClick(n);for(var t=0;t<u.length;t++){var o=u[t];!o.disabled&&o.onClick(n)&&(n=!0)}n&&render()};return window.addEventListener("keydown",function(e){!function(e){var n=e.keyCode;switch(console.log(c),n){case SHIFT_KEY:c=!0;break;case CONTROL_KEY:case COMMAND_KEY:i=!0;break;case OPTION_KEY:s=!0,getCurrentContext().setCursor("pointer");break;case ENTER_KEY:document.activeElement!==document.body&&document.activeElement.blur()}for(var t=getCurrentContext().getObjects(),o=0;o<t.length;o++)t[o]instanceof Keyboard&&t[o].onKeyDown(n);getCurrentContext().getHistoryManager().onKeyDown(n),CurrentTool.onKeyDown(n)&&render()}(e)},!1),window.addEventListener("keyup",function(e){!function(e){var n=e.keyCode;switch(n){case SHIFT_KEY:c=!1;break;case CONTROL_KEY:case COMMAND_KEY:i=!1;break;case OPTION_KEY:s=!1,getCurrentContext().setCursor("default")}for(var t=getCurrentContext().getObjects(),o=0;o<t.length;o++)t[o]instanceof Keyboard&&t[o].onKeyUp(n);CurrentTool.onKeyUp(n)&&render()}(e)},!1),{registerContext:function(e){var t=e.getRenderer().canvas;t.addEventListener("click",function(e){return f()},!1),t.addEventListener("dblclick",function(e){},!1),t.addEventListener("wheel",function(e){return function(e){var t=getCurrentContext().getCamera(),o=.95;-e.deltaY/120<0&&(o=1/o);var r=t.getWorldPos(n);t.zoomBy(o);var a=t.getScreenPos(r),u=(n.x-a.x)*t.zoom,c=(n.y-a.y)*t.zoom;t.translate(-u,-c),popup.onWheel(),render()}(e)},!1),t.addEventListener("mousedown",function(e){return function(e){var n=getCurrentContext().getRenderer().canvas.getBoundingClientRect();if(d=!1,l=Date.now(),r=!0,a=new Vector(e.clientX-n.left,e.clientY-n.top),e.button===LEFT_MOUSE_BUTTON){var t=!1;contextmenu.hide(),t=CurrentTool.onMouseDown(t);for(var o=0;o<u.length;o++){var c=u[o];!c.disabled&&c.onMouseDown(t)&&(t=!0)}t&&render()}}(e)},!1),t.addEventListener("mouseup",function(e){return g()},!1),t.addEventListener("mousemove",function(e){return v(e)},!1),t.addEventListener("mouseenter",function(e){PlaceItemController.drag&&(v(e),f(),PlaceItemController.drag=!1)},!1),t.addEventListener("mouseleave",function(e){r&&(g(),f())}),t.addEventListener("contextmenu",function(e){contextmenu.show(e),e.preventDefault()})},addMouseListener:function(e){u.push(e)},getWorldMousePos:function(){return V(o)},getRawMousePos:function(){return V(e)},getShiftKeyDown:function(){return c},getModifierKeyDown:function(){return i},getOptionKeyDown:function(){return s},getIsDragging:function(){return d}}}();
-"use strict";var ItemNavController=function(){var e=document.getElementById("open-items-tab"),t=document.getElementById("items");return{disabled:!1,isOpen:!1,toggle:function(){this.isOpen?(this.isOpen=!1,t.style.width="0px",e.style.marginLeft=ItemNavController.getTabOffset()+"px",e.style.borderColor="rgba(153, 153, 153, 0.7)",e.style.backgroundColor="rgba(200, 200, 200, 0.7)",e.style.fontSize="2em",e.innerHTML="&#9776;"):(this.isOpen=!0,t.style.width=ITEMNAV_WIDTH+"px",e.style.marginLeft=ItemNavController.getTabOffset()+"px",e.style.borderColor="rgba(153, 153, 153, 0.0)",e.style.backgroundColor="rgba(200, 200, 200, 0.0)",e.style.fontSize="2.5em",e.innerHTML="&times;")},getTabOffset:function(){return this.isOpen?ITEMNAV_WIDTH-e.offsetWidth:0}}}();
-"use strict";var PlaceItemController={disabled:!1,drag:!1,place:function(e,t){t&&(e.not=t);getCurrentContext().getRenderer().canvas.getBoundingClientRect();itemTool.activate(e,getCurrentContext())},onDragEnd:function(e){this.drag=!0,e.srcElement.parentElement.onclick()}};
-"use strict";var SelectionBox=function(){var t=void 0,e=void 0;return{disabled:!1,onMouseDown:function(e){var o=getCurrentContext().getObjects(),n=getCurrentContext().getWires(),r=Input.getWorldMousePos();if(!e&&selectionTool.isActive&&!Input.getOptionKeyDown()){for(i=0;i<o.length;i++){var s=o[i];if(s.contains(r)||s.sContains(r)||-1!==s.oPortContains(r)||-1!==s.iPortContains(r))return}for(var i=0;i<n.length;i++){if(-1!==n[i].getNearestT(r.x,r.y))return}t=V(r),popup.hide()}},onMouseMove:function(){getCurrentContext().getObjects();var o=Input.getWorldMousePos();if(void 0!=t)return e=V(o),popup.hide(),!0},onMouseUp:function(){},onClick:function(o){getCurrentContext().getObjects();var n=Input.getWorldMousePos();if(void 0!=t){e=V(n);var r=function(){var o=getCurrentContext().getObjects(),n=[];if(void 0!=t)for(var r=new Transform(V((t.x+e.x)/2,(t.y+e.y)/2),V(Math.abs(e.x-t.x),Math.abs(e.y-t.y)),0,getCurrentContext().getCamera()),s=0;s<o.length;s++){var i=o[s],u=void 0!=i.selectionBoxTransform?i.selectionBoxTransform:i.transform;if(transformContains(u,r))n.push(i);else if(void 0!=i.inputs&&void 0!=i.outputs){for(f=0;f<i.inputs.length;f++){var a=i.inputs[f];rectContains(r,a.getPos())&&n.push(a)}for(var f=0;f<i.outputs.length;f++){var v=i.outputs[f];rectContains(r,v.getPos())&&n.push(v)}}}return n}();return Input.getShiftKeyDown()||selectionTool.deselectAll(!0),selectionTool.select(r,!0),t=void 0,e=void 0,!0}},draw:function(o){var n=o.getCamera();if(void 0!=t&&void 0!=e){var r=n.getScreenPos(t),s=n.getScreenPos(e),i=s.x-r.x,u=s.y-r.y;o.save(),o.context.globalAlpha=.4,o.rect(r.x+i/2,r.y+u/2,i,u,"#ffffff","#6666ff",2/n.zoom),o.restore()}}}}();
-"use strict";var SideNavController=function(){document.getElementById("open-sive-nav-button"),document.getElementById("open-items-tab");var e=document.getElementById("sidenav"),t=document.getElementById("content"),n=document.getElementById("overlay");n&&n.addEventListener("transitionend",function(e){SideNavController.isOpen||(n.style.visibility="hidden")},!1);return{disabled:!1,isOpen:!1,toggle:function(){this.isOpen?(this.isOpen=!1,e.style.width="0px",t.style.marginLeft="0px",n.style.opacity="0",n.onclick=function(){}):(this.isOpen=!0,e.style.width=SIDENAV_WIDTH+"px",t.style.marginLeft=SIDENAV_WIDTH+"px",n.style.visibility="visible",n.style.opacity="1",n.onclick=function(){SideNavController.toggle()})},getWidth:function(){return this.isOpen?SIDENAV_WIDTH:0}}}();
-"use strict";function _classCallCheck(e,n){if(!(e instanceof n))throw new TypeError("Cannot call a class as a function")}var CurrentTool,_createClass=function(){function e(e,n){for(var t=0;t<n.length;t++){var o=n[t];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(n,t,o){return t&&e(n.prototype,t),o&&e(n,o),n}}(),Tool=function(){function e(){_classCallCheck(this,e),this.isActive=!1}return _createClass(e,[{key:"activate",value:function(){CurrentTool&&CurrentTool.deactivate(),CurrentTool=this,this.isActive=!0,render()}},{key:"deactivate",value:function(){this.isActive=!1}},{key:"onKeyDown",value:function(e){}},{key:"onKeyUp",value:function(e){}},{key:"onMouseDown",value:function(){}},{key:"onMouseMove",value:function(){}},{key:"onMouseUp",value:function(){}},{key:"onClick",value:function(){}},{key:"draw",value:function(){}}]),e}();
-"use strict";var TransformController=function(){var t=void 0,o=!1,e=!1,n=V(0,0),r=[],i=0,a=0,s=[],l=[],c=[];return{disabled:!1,startDrag:function(e,i){e.selected||(selectionTool.deselectAll(!0),selectionTool.select([e],!0)),r=selectionTool.selections,c=[];for(var a=0;a<r.length;a++){if(!r[a].transform)return!0;c[a]=r[a].transform.copy()}return o=!0,n=i.copy().sub(e.getPos()),t=e,popup.hide(),!0},startRotation:function(t,o){l=t,s=[],c=[];for(var n=0;n<l.length;n++){if(!l[n].transform)return!0;s[n]=l[n].getAngle(),c[n]=l[n].transform.copy()}return e=!0,i=Math.atan2(o.y-selectionTool.midpoint.y,o.x-selectionTool.midpoint.x),a=i,popup.hide(),!0},onMouseDown:function(){var o=getCurrentContext().getObjects(),n=Input.getWorldMousePos();if(!e&&selectionTool.selections.length>0){var r=n.sub(selectionTool.midpoint).len2();if(r<=ROTATION_CIRCLE_R2&&r>=ROTATION_CIRCLE_R1)return this.startRotation(selectionTool.selections,n)}for(var i=o.length-1;i>=0;i--){var a=o[i];if(a.contains(n)||a.sContains(n))return void(t=a)}},onMouseMove:function(){getCurrentContext().getObjects();var i=Input.getWorldMousePos();return o||void 0==t?o?(function(o,e){for(var i=V(o).sub(t.getPos()).sub(n),a=0;a<r.length;a++){var s=r[a],l=s.getPos().add(i);e&&(l=V(Math.floor(l.x/GRID_SIZE+.5)*GRID_SIZE,Math.floor(l.y/GRID_SIZE+.5)*GRID_SIZE)),s.setPos(l)}selectionTool.recalculateMidpoint()}(i,Input.getShiftKeyDown()),!0):e?(function(t,o){for(var e=selectionTool.midpoint,n=Math.atan2(t.y-e.y,t.x-e.x)-a,r=0;r<l.length;r++){var i=s[r]+n;s[r]=i,o&&(i=Math.floor(i/(Math.PI/4))*Math.PI/4),l[r].setRotationAbout(i,e)}a=n+a}(i,Input.getShiftKeyDown()),!0):void 0:this.startDrag(t,i)},onMouseUp:function(){return t=void 0,o?(getCurrentContext().addAction(createTransformAction(r,c)),o=!1,!0):e?(getCurrentContext().addAction(createTransformAction(l,c)),e=!1,!0):void 0},onClick:function(){},draw:function(t){var o=t.getCamera(),n=o.getScreenPos(selectionTool.midpoint),r=ROTATION_CIRCLE_RADIUS/o.zoom;if(e){t.save(),t.context.fillStyle="#fff",t.context.strokeStyle="#000",t.context.lineWidth=5,t.context.globalAlpha=.4,t.context.beginPath(),t.context.moveTo(n.x,n.y);var s=(a-i)%(2*Math.PI);s<0&&(s+=2*Math.PI),t.context.arc(n.x,n.y,r,i,a,s>Math.PI),t.context.fill(),t.context.closePath(),t.restore()}}}}();
-"use strict";var WireController=function(){var o=void 0,t=void 0,e=-1;return{disabled:!1,onMouseDown:function(n){var i=getCurrentContext().getObjects(),r=getCurrentContext().getWires(),l=Input.getWorldMousePos();if(!n){for(v=i.length-1;v>=0;v--){var u,s=i[v];if(-1!==(u=s.oPortContains(l)))return void(o=s.outputs[u]);if(-1!==(u=s.iPortContains(l)))return void(o=s.inputs[u])}for(var v=0;v<r.length;v++){var c,d=r[v];if(-1!==(c=d.getNearestT(l.x,l.y)))return t=d,e=c,!0}}},onMouseMove:function(n){var i=Input.getWorldMousePos();if(!n){if(void 0!=o)return wiringTool.activate(o,getCurrentContext()),o=void 0,!0;if(void 0!=t){t.split(e);var r=new SplitWireAction(t);return getCurrentContext().addAction(r),selectionTool.deselectAll(!0),selectionTool.select([t.connection],!0),TransformController.startDrag(t.connection,i),t=void 0,!0}}},onMouseUp:function(){},onClick:function(e){return e?(o=void 0,void(t=void 0)):void 0!=o?(wiringTool.activate(o,getCurrentContext()),o=void 0,!0):void 0!=t?(Input.getShiftKeyDown()||selectionTool.deselectAll(!0),selectionTool.select([t],!0),t=void 0,!0):void 0}}}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var s=0;s<e.length;s++){var i=e[s];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(t,i.key,i)}}return function(e,s,i){return s&&t(e.prototype,s),i&&t(e,i),e}}(),Camera=function(){function t(e,s,i){_classCallCheck(this,t),this.canvas=e.renderer.canvas,this.pos=s||V(0,0),this.zoom=i||1,this.center=V(0,0),this.transform=new Transform(V(0,0),V(0,0),0,this),this.dirty=!0}return _createClass(t,[{key:"resize",value:function(){this.center=V(this.canvas.width,this.canvas.height).scale(.5)}},{key:"updateMatrix",value:function(){if(this.dirty){this.dirty=!1,this.mat=new Matrix2x3,this.mat.translate(this.pos),this.mat.scale(V(this.zoom,this.zoom)),this.inv=this.mat.inverse();var t=this.getWorldPos(V(0,0)),e=this.getWorldPos(V(this.canvas.width,this.canvas.height));this.transform.setPos(e.add(t).scale(.5)),this.transform.setSize(e.sub(t))}}},{key:"translate",value:function(t,e){this.dirty=!0,this.pos.x+=t,this.pos.y+=e}},{key:"zoomBy",value:function(t){this.dirty=!0,this.zoom*=t}},{key:"cull",value:function(t){return transformContains(t,this.getTransform())}},{key:"getTransform",value:function(){return this.updateMatrix(),this.transform}},{key:"getMatrix",value:function(){return this.updateMatrix(),this.mat}},{key:"getInverseMatrix",value:function(){return this.updateMatrix(),this.inv}},{key:"getScreenPos",value:function(t){return this.getInverseMatrix().mul(t).add(this.center)}},{key:"getWorldPos",value:function(t){return this.getMatrix().mul(t.sub(this.center))}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),Clipboard=function(){function e(){var t=this;_classCallCheck(this,e),document.addEventListener("copy",function(e){t.copy(e)},!1),document.addEventListener("cut",function(e){t.cut(e)},!1),document.addEventListener("paste",function(e){t.paste(e)},!1)}return _createClass(e,[{key:"copy",value:function(e){for(var t=selectionTool.selections,n=getAllThingsBetween(t),o=[],r=[],a=0;a<n.length;a++)n[a]instanceof Wire?r.push(n[a]):o.push(n[a]);var c={getObjects:function(){return o},getWires:function(){return r}},l=Exporter.write(c);e.clipboardData.setData("text/plain",l),e.preventDefault()}},{key:"cut",value:function(e){this.copy(e),RemoveObjects(getCurrentContext(),selectionTool.selections,!0),e.preventDefault()}},{key:"paste",value:function(e){console.log("ASd");for(var t=Importer.load(e.clipboardData.getData("text/plain"),getCurrentContext()),n=t.objects,o=(t.wires,new GroupAction),r=0;r<n.length;r++)n[r].setPos(n[r].getPos().add(V(5,5))),o.add(new PlaceAction(n[r]));getCurrentContext().addAction(o),selectionTool.deselectAll(),selectionTool.select(n),render(),e.preventDefault()}}]),e}(),clipboard=new Clipboard;
-"use strict";function _classCallCheck(e,n){if(!(e instanceof n))throw new TypeError("Cannot call a class as a function")}function getCurrentContext(){return currentContext}var _createClass=function(){function e(e,n){for(var t=0;t<n.length;t++){var r=n[t];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(n,t,r){return t&&e(n.prototype,t),r&&e(n,r),n}}(),Context=function(){function e(n){_classCallCheck(this,e),this.uidmanager=new UIDManager(this),this.designer=n}return _createClass(e,[{key:"reset",value:function(){this.designer.reset()}},{key:"render",value:function(){this.designer.render()}},{key:"propogate",value:function(e,n,t){this.designer.propogate(e,n,t)}},{key:"add",value:function(e){e instanceof Wire?this.addWire(e):this.addObject(e)}},{key:"addObject",value:function(e){this.designer.addObject(e),this.uidmanager.giveUIDTo(e)}},{key:"addObjects",value:function(e){for(var n=0;n<e.length;n++)this.addObject(e[n])}},{key:"addWire",value:function(e){this.designer.addWire(e),this.uidmanager.giveUIDTo(e)}},{key:"addWires",value:function(e){for(var n=0;n<e.length;n++)this.addWire(e[n])}},{key:"addAction",value:function(e){this.designer.history.add(e)}},{key:"setCursor",value:function(e){this.designer.renderer.setCursor(e)}},{key:"remove",value:function(e){var n=this.getIndexOf(e);-1!==n&&(e instanceof Wire?this.designer.getWires().splice(n,1):this.designer.getObjects().splice(n,1))}},{key:"undo",value:function(){this.designer.history.undo()}},{key:"redo",value:function(){this.designer.history.redo()}},{key:"redistributeUIDs",value:function(){this.uidmanager.redistribute()}},{key:"getDesigner",value:function(){return this.designer}},{key:"getRenderer",value:function(){return this.designer.renderer}},{key:"getCamera",value:function(){return this.designer.camera}},{key:"getHistoryManager",value:function(){return this.designer.history}},{key:"getObjects",value:function(){return CopyArray(this.designer.objects)}},{key:"getWires",value:function(){return CopyArray(this.designer.wires)}},{key:"getIndexOf",value:function(e){return e instanceof Wire?this.designer.getIndexOfWire(e):this.designer.getIndexOfObject(e)}},{key:"findByUID",value:function(e){return findObjectByUID(e)||findWireByUID(e)}},{key:"findObjectByUID",value:function(e){return UIDManager.find(this.getObjects(),e)}},{key:"findWireByUID",value:function(e){return UIDManager.find(this.getWires(),e)}}]),e}();
-"use strict";function copyGroup(n){if(0===n.length)return[];for(var t=[],o=0;o<n.length;o++)n[o]instanceof WirePort?n.splice(o--,1):t[o]=n[o].copy();for(var r=[],o=0;o<n.length;o++)for(var e=n[o],i=0;i<e.outputs.length;i++)for(var c=e.outputs[i].connections,s=0;s<c.length;s++){for(var f=c[s];f instanceof Wire||f instanceof WirePort;)f=f.connection;if(void 0==findIPort(n,f,t))break;var a=c[s].copy();t[o].outputs[i].connect(a);for(var u=c[s];u.connection instanceof WirePort;){var p=new WirePort(e.context);a.connect(p),r.push(a),a=(u=u.connection.connection).copy(),p.connect(a),t.push(p)}var h=findIPort(n,u.connection,t);a.connect(h),r.push(a)}for(o=0;o<n.length;o++)t[o].isOn=n[o].isOn,0===n[o].inputs.length&&t[o].activate(n[o].isOn);for(o=0;o<r.length;o++)0===n[o].inputs.length&&t[o].activate(n[o].isOn);return{objects:t,wires:r}}function findIPort(n,t,o){for(var r=0;r<n.length;r++)for(var e=n[r].inputs,i=0;i<e.length;i++)if(e[i]===t)return o[r].inputs[i]}
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),HistoryManager=function(){function t(){_classCallCheck(this,t),this.undoStack=[],this.redoStack=[]}return _createClass(t,[{key:"onKeyDown",value:function(t,e){Input.getModifierKeyDown()&&(t===Y_KEY||t===Z_KEY&&Input.getShiftKeyDown()?this.redo():t===Z_KEY&&this.undo())}},{key:"add",value:function(t){t instanceof GroupAction&&0==t.actions.length||(this.redoStack=[],this.undoStack.push(t))}},{key:"undo",value:function(){if(this.undoStack.length>0){var t=this.undoStack.pop();t.undo(),this.redoStack.push(t),popup.update(),render()}}},{key:"redo",value:function(){if(this.redoStack.length>0){var t=this.redoStack.pop();t.redo(),this.undoStack.push(t),popup.update(),render()}}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var a=t[n];a.enumerable=a.enumerable||!1,a.configurable=!0,"value"in a&&(a.writable=!0),Object.defineProperty(e,a.key,a)}}return function(t,n,a){return n&&e(t.prototype,n),a&&e(t,a),t}}(),PROPOGATION_TIME=1,updateRequests=0,Propogation=function(){function e(t,n,a,s){_classCallCheck(this,e),this.sender=t,this.receiver=n,this.signal=a,0===updateRequests&&(updateRequests++,setTimeout(s,PROPOGATION_TIME))}return _createClass(e,[{key:"send",value:function(){this.receiver.activate(this.signal)}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var r=e[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,n,r){return n&&t(e.prototype,n),r&&t(e,r),e}}(),UIDManager=function(){function t(e){_classCallCheck(this,t),this.context=e,this.counter=0}return _createClass(t,[{key:"giveUIDTo",value:function(t){t.uid||(t.uid=this.counter++)}},{key:"redistribute",value:function(){var t=this.context.getObjects().concat(this.context.getWires());this.counter=0;for(var e=0;e<t.length;e++)t[e].uid=this.counter++}}]),t}();UIDManager.find=function(t,e){for(var n=0;n<t.length;n++)if(t[n].uid===e)return t[n]};
-"use strict";function rectContains(n,t){var e=n.size.scale(.5),o=n.size.scale(-.5),r=n.toLocalSpace(t);return r.x>o.x&&r.y>o.y&&r.x<e.x&&r.y<e.y}function circleContains(n,t){return n.toLocalSpace(t).len2()<=n.size.x*n.size.x/4}function transformContains(n,t){if(Math.abs(n.getAngle())<=1e-5&&Math.abs(t.getAngle())<=1e-5){var e=n.getPos(),o=n.getSize(),r=t.getPos(),i=t.getSize();return 2*Math.abs(e.x-r.x)<o.x+i.x&&2*Math.abs(e.y-r.y)<o.y+i.y}var a=n.getRadius()+t.getRadius(),c=n.getPos().sub(t.getPos());if(c.dot(c)>a*a)return!1;for(var s=n.getLocalCorners(),f=t.getCorners(),u=[],_=0;_<4;_++)u[_]=n.toLocalSpace(f[_]),u[_].x+=1e-4*_,u[_].y+=1e-4*_;var T=s.concat(u);O=R=T[0].x,h=v=T[4].x;for(l=1;l<4;l++)O=Math.min(T[l].x,O),R=Math.max(T[l].x,R),h=Math.min(T[l+4].x,h),v=Math.max(T[l+4].x,v);if(R<h||v<O)return!1;O=R=T[0].y,h=v=T[4].y;for(l=1;l<4;l++)O=Math.min(T[l].y,O),R=Math.max(T[l].y,R),h=Math.min(T[l+4].y,h),v=Math.max(T[l+4].y,v);if(R<h||v<O)return!1;for(var E=[u[3].sub(u[0]),u[3].sub(u[2])],_=0;_<E.length;_++){for(var I=E[_],O=void 0,R=void 0,h=void 0,v=void 0,l=0;l<4;l++){var p=T[l].dot(I);O=Math.min(p,O||1/0),R=Math.max(p,R||-1/0);var d=T[l+4].dot(I);h=Math.min(d,h||1/0),v=Math.max(d,v||-1/0)}if(R<h||v<O)return!1}return!0}function getNearestPointOnRect(n,t,e){return e.x<n.x?V(n.x,clamp(e.y,n.y,t.y)):e.x>t.x?V(t.x,clamp(e.y,n.y,t.y)):e.y<n.y?V(clamp(e.x,n.x,t.x),n.y):e.y>t.y?V(clamp(e.x,n.x,t.x),t.y):V(0,0)}function getAllThingsBetween(n){for(var t=[],e=[],o=0;o<n.length;o++)n[o]instanceof Wire||n[o]instanceof WirePort?e.push(n[o]):n[o]instanceof IOObject&&t.push(n[o]);for(var r=[],o=0;o<t.length;o++){r.push(t[o]);for(i=0;i<t[o].inputs.length;i++){for(s=t[o].inputs[i].input;void 0!=s&&!(s instanceof OPort);)void 0==findByUID(r,s.uid)&&r.push(s),s=s.input}for(var i=0;i<t[o].outputs.length;i++)for(var a=t[o].outputs[i],c=0;c<a.connections.length;c++)for(s=a.connections[c];void 0!=s&&!(s instanceof IPort);)void 0==findByUID(r,s.uid)&&r.push(s),s=s.connection}for(o=0;o<e.length;o++){r.push(e[o]);for(var s=e[o].input;void 0!=s&&!(s instanceof OPort);)void 0==findByUID(r,s.uid)&&r.push(s),s=s.input;for(s=e[o].connection;void 0!=s&&!(s instanceof IPort);)void 0==findByUID(r,s.uid)&&r.push(s),s=s.connection}return r}function getAllWires(n){for(var t=[],e=0;e<n.length;e++)for(var o=n[e],r=0;r<o.outputs.length;r++)for(var i=o.outputs[r].connections,a=0;a<i.length;a++){for(var c=i[a];c.connection instanceof WirePort;)t.push(c),c=c.connection.connection;t.push(c)}return t}function RemoveObjects(n,t,e){if(0!==t.length){for(var o=new GroupAction,r=getAllThingsBetween(t),i=0;i<r.length;i++)if(r[i].selected&&selectionTool.deselect([r[i]]),r[i]instanceof Wire||r[i]instanceof WirePort){var a=r[i].input,c=r[i].connection;r[i].remove(),e&&o.add(new DeleteAction(r[i],a,c))}for(i=0;i<r.length;i++)r[i]instanceof Wire||r[i]instanceof WirePort||(r[i].remove(),e&&o.add(new DeleteAction(r[i])));e&&n.addAction(o),render()}}function CopyArray(n){for(var t=[],e=0;e<n.length;e++)t.push(n[e]);return t}function findIC(n,t){for(var e=0;e<t.length;e++)if(t[e].icuid===n)return t[e]}function findByUID(n,t){for(var e=0;e<n.length;e++)if(n[e].uid===t)return n[e]}function createTransformAction(n,t){for(var e=new GroupAction,o=0;o<n.length;o++){var r=t[o],i=n[o].transform.copy();r.equals(i)||e.add(new TransformAction(n[o],r,i))}return e}function getNearestT(n,t,e,o){var r=t.x-n.x,i=t.y-n.y,a=(r*(e-n.x)+i*(o-n.y))/(r*r+i*i);a=clamp(a,0,1);return V(r*a+n.x,i*a+n.y).sub(V(e,o)).len2()<WIRE_DIST_THRESHOLD2?a:-1}function findRoots(n,t,e,o,r,i){var a=t;do{var c=r(a,e,o),s=i(a,e,o);if(0===s)break;a=clamp(a-=c/s,.01,.99)}while(n-- >0);return a}function separateGroup(n){for(var t=[],e=[],o=[],r=0;r<n.length;r++){var i=n[r];i instanceof Switch||i instanceof Button||i instanceof Clock?t.push(i):i instanceof LED?o.push(i):e.push(i)}return{inputs:t,components:e,outputs:o}}function clamp(n,t,e){return Math.min(Math.max(n,t),e)}function getBrowser(){if(void 0!=navigator){var n,t=navigator.userAgent,e=t.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i)||[];return/trident/i.test(e[1])?(n=/\brv[ :]+(\d+)/g.exec(t)||[],{name:"IE",version:n[1]||""}):"Chrome"===e[1]&&null!=(n=t.match(/\bOPR|Edge\/(\d+)/))?{name:"Opera",version:n[1]}:(e=e[2]?[e[1],e[2]]:[navigator.appName,navigator.appVersion,"-?"],null!=(n=t.match(/version\/(\d+)/i))&&e.splice(1,1,n[1]),{name:e[0],version:e[1]})}}var DEFAULT_SIZE=50,GRID_SIZE=50,DEFAULT_FILL_COLOR="#ffffff",DEFAULT_BORDER_COLOR="#000000",DEFAULT_ON_COLOR="#3cacf2",IO_PORT_LENGTH=60,IO_PORT_RADIUS=7,IO_PORT_BORDER_WIDTH=1,IO_PORT_LINE_WIDTH=2,WIRE_DIST_THRESHOLD=5,WIRE_DIST_THRESHOLD2=WIRE_DIST_THRESHOLD*WIRE_DIST_THRESHOLD,WIRE_DIST_ITERATIONS=10,WIRE_NEWTON_ITERATIONS=5,WIRE_SNAP_THRESHOLD=10,ROTATION_CIRCLE_RADIUS=75,ROTATION_CIRCLE_THICKNESS=5,ROTATION_CIRCLE_THRESHOLD=5,ROTATION_CIRCLE_R1=Math.pow(ROTATION_CIRCLE_RADIUS-ROTATION_CIRCLE_THRESHOLD,2),ROTATION_CIRCLE_R2=Math.pow(ROTATION_CIRCLE_RADIUS+ROTATION_CIRCLE_THRESHOLD,2),SIDENAV_WIDTH=200,ITEMNAV_WIDTH=200,LEFT_MOUSE_BUTTON=0,RIGHT_MOUSE_BUTTON=1,OPTION_KEY=18,SHIFT_KEY=16,BACKSPACE_KEY=8,DELETE_KEY=46,ENTER_KEY=13,ESC_KEY=27,A_KEY=65,C_KEY=67,V_KEY=86,X_KEY=88,Y_KEY=89,Z_KEY=90,CONTROL_KEY=17,COMMAND_KEY=91;
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var s=0;s<e.length;s++){var n=e[s];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,s,n){return s&&t(e.prototype,s),n&&t(e,n),e}}(),IOObject=function(){function t(e,s,n,i,o,r,a,u,h,l,f){_classCallCheck(this,t),void 0==e&&(e=getCurrentContext()),this.context=e,s=void 0==s?0:s,n=void 0==n?0:n,this.transform=new Transform(V(s,n),V(i,o),0,e.getCamera()),this.cullTransform=new Transform(this.transform.getPos(),V(0,0),0,this.context.getCamera()),this.name=this.getDisplayName(),this.img=r,this.isOn=!1,this.isPressable=a,this.maxInputs=u,this.maxOutputs=h,this.selected=!1,this.isPressable&&(this.selectionBoxTransform=new Transform(V(s,n),V(l,f),0,e.getCamera())),this.outputs=[],this.inputs=[],h>0&&this.setOutputAmount(1)}return _createClass(t,[{key:"setInputAmount",value:function(t){for(t=clamp(t,0,this.maxInputs);this.inputs.length>t;)this.inputs.splice(this.inputs.length-1,1);for(;this.inputs.length<t;)this.inputs.push(new IPort(this));for(var e=0;e<this.inputs.length;e++)this.inputs[e].updatePosition();this.onTransformChange()}},{key:"setOutputAmount",value:function(t){for(t=clamp(t,0,this.maxOutputs);this.outputs.length>t;)this.outputs.splice(this.outputs.length-1,1);for(;this.outputs.length<t;)this.outputs.push(new OPort(this));for(var e=0;e<this.outputs.length;e++)this.outputs[e].updatePosition();this.onTransformChange()}},{key:"onTransformChange",value:function(){this.isPressable&&void 0!=this.selectionBoxTransform&&(this.selectionBoxTransform.setPos(this.transform.getPos()),this.selectionBoxTransform.setAngle(this.transform.getAngle()),this.selectionBoxTransform.setScale(this.transform.getScale())),this.updateCullTransform();for(t=0;t<this.inputs.length;t++)this.inputs[t].onTransformChange();for(var t=0;t<this.outputs.length;t++)this.outputs[t].onTransformChange()}},{key:"updateCullTransform",value:function(){var t=V(-this.transform.size.x/2,-this.transform.size.y/2),e=V(this.transform.size.x/2,this.transform.size.y/2);void 0!=this.selectionBoxTransform&&(t.x=Math.min(-this.selectionBoxTransform.size.x/2,t.x),t.y=Math.min(-this.selectionBoxTransform.size.y/2,t.y),e.x=Math.max(this.selectionBoxTransform.size.x/2,e.x),e.y=Math.max(this.selectionBoxTransform.size.y/2,e.y));for(n=0;n<this.inputs.length;n++){var s=this.inputs[n];t.x=Math.min(s.target.x,t.x),t.y=Math.min(s.target.y,t.y),e.x=Math.max(s.target.x,e.x),e.y=Math.max(s.target.y,e.y)}for(var n=0;n<this.outputs.length;n++){var i=this.outputs[n];t.x=Math.min(i.target.x,t.x),t.y=Math.min(i.target.y,t.y),e.x=Math.max(i.target.x,e.x),e.y=Math.max(i.target.y,e.y)}this.cullTransform.setSize(V(e.x-t.x,e.y-t.y));var o=Math.cos(this.transform.getAngle()),r=Math.sin(this.transform.getAngle()),a=(t.x- -this.cullTransform.size.x/2)*o+(t.y- -this.cullTransform.size.y/2)*r,u=(t.y- -this.cullTransform.size.y/2)*o+(t.x- -this.cullTransform.size.x/2)*r;this.cullTransform.setPos(this.transform.getPos().add(V(a,u))),this.cullTransform.setAngle(this.transform.getAngle()),this.cullTransform.setScale(this.transform.getScale()),this.cullTransform.setSize(this.cullTransform.size.add(V(2*IO_PORT_RADIUS,2*IO_PORT_RADIUS)))}},{key:"click",value:function(){}},{key:"press",value:function(){}},{key:"release",value:function(){}},{key:"activate",value:function(t,e){void 0==e&&(e=0),this.isOn=t,void 0!=this.outputs[e]&&this.outputs[e].activate(t)}},{key:"localSpace",value:function(){var t=this.context.getRenderer();t.save(),this.transform.transformCtx(t.context)}},{key:"draw",value:function(){this.localSpace();for(t=0;t<this.inputs.length;t++)this.inputs[t].draw();for(var t=0;t<this.outputs.length;t++)this.outputs[t].draw(t);var e=this.context.getRenderer();this.isPressable&&void 0!=this.selectionBoxTransform&&e.rect(0,0,this.selectionBoxTransform.size.x,this.selectionBoxTransform.size.y,this.getCol(),this.getBorderColor()),void 0!=this.img&&e.image(this.img,0,0,this.transform.size.x,this.transform.size.y,this.getImageTint()),e.restore()}},{key:"remove",value:function(){this.context.remove(this);for(t=0;t<this.outputs.length;t++)this.outputs[t].remove();for(var t=0;t<this.inputs.length;t++)this.inputs[t].remove()}},{key:"contains",value:function(t){return rectContains(this.transform,t)}},{key:"sContains",value:function(t){return!this.isPressable&&this.contains(t)||this.isPressable&&!this.contains(t)&&rectContains(this.selectionBoxTransform,t)}},{key:"iPortContains",value:function(t){for(var e=0;e<this.inputs.length;e++)if(this.inputs[e].contains(t))return e;return-1}},{key:"oPortContains",value:function(t){for(var e=0;e<this.outputs.length;e++)if(this.outputs[e].contains(t))return e;return-1}},{key:"setContext",value:function(t){this.context=t,this.transform.setCamera(this.context.getCamera()),void 0!=this.selectionBoxTransform&&this.selectionBoxTransform.setCamera(this.context.getCamera())}},{key:"setTransform",value:function(t){this.transform=t,this.onTransformChange()}},{key:"setPos",value:function(t){this.transform.setPos(t),this.onTransformChange()}},{key:"setAngle",value:function(t){this.transform.setAngle(t),this.onTransformChange()}},{key:"setRotationAbout",value:function(t,e){this.transform.rotateAbout(-this.getAngle(),e),this.transform.rotateAbout(t,e),this.onTransformChange()}},{key:"setName",value:function(t){this.name=t}},{key:"getCullBox",value:function(){return this.cullTransform}},{key:"getInputAmount",value:function(){return this.inputs.length}},{key:"getImageTint",value:function(){return this.getCol()}},{key:"getCol",value:function(){return this.selected?"#1cff3e":void 0}},{key:"getBorderColor",value:function(){return this.selected?"#0d7f1f":void 0}},{key:"getPos",value:function(){return this.transform.pos.copy()}},{key:"getAngle",value:function(){return this.transform.angle}},{key:"getSize",value:function(){return this.transform.size}},{key:"getMaxInputFieldCount",value:function(){return 8}},{key:"getMinInputFieldCount",value:function(){return 2}},{key:"getName",value:function(){return this.name}},{key:"getDisplayName",value:function(){return"IOObject"}},{key:"getRenderer",value:function(){return this.context.getRenderer()}},{key:"copy",value:function(){var t=new this.constructor(this.context);t.transform=this.transform.copy(),t.name=this.name,void 0!=this.selectionBoxTransform&&(t.selectionBoxTransform=this.selectionBoxTransform.copy());for(e=0;e<this.inputs.length;e++)t.inputs[e]=this.inputs[e].copy(),t.inputs[e].parent=t;for(var e=0;e<this.outputs.length;e++)t.outputs[e]=this.outputs[e].copy(),t.outputs[e].parent=t;return t}},{key:"writeTo",value:function(t){var e=createChildNode(t,this.constructor.getXMLName());return createTextElement(e,"uid",this.uid),createTextElement(e,"name",this.getName()),createTextElement(e,"x",this.getPos().x),createTextElement(e,"y",this.getPos().y),createTextElement(e,"angle",this.getAngle()),e}},{key:"load",value:function(t){var e=getIntValue(getChildNode(t,"uid")),s=getStringValue(getChildNode(t,"name")),n=getFloatValue(getChildNode(t,"x")),i=getFloatValue(getChildNode(t,"y")),o=getFloatValue(getChildNode(t,"angle")),r=getBooleanValue(getChildNode(t,"isOn"),!1);return this.uid=e,this.setName(s),r&&this.click(r),this.setPos(V(n,i)),this.setAngle(o),this}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var n=e[i];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,i,n){return i&&t(e.prototype,i),n&&t(e,n),e}}(),IOPort=function(){function t(e,i){_classCallCheck(this,t),this.isOn=!1,this.parent=e,this.connections=[],this.lineColor=DEFAULT_BORDER_COLOR,this.origin=V(0,0),this.target=i.scale(IO_PORT_LENGTH),this.dir=i,this.set=!1,void 0!=e&&this.updatePosition()}return _createClass(t,[{key:"getArray",value:function(){}},{key:"getIndex",value:function(){for(var t=0;t<this.getArray().length&&this.getArray()[t]!==this;t++);return t}},{key:"getCol",value:function(){return this.parent.selected||this.selected?"#1cff3e":void 0}},{key:"getBorderColor",value:function(){return this.parent.selected||this.selected?"#0d7f1f":void 0}},{key:"updatePosition",value:function(){var t=this.getIndex(),e=-this.parent.transform.size.y/2*(t-this.getArray().length/2+.5);0===t&&(e-=1),t===this.getArray().length-1&&(e+=1),this.origin.y=e,this.target.y=e,this.prevParentLength=this.getArray().length}},{key:"onTransformChange",value:function(){this.set||this.updatePosition();for(var t=0;t<this.connections.length;t++)void 0!=this.connections[t]&&this.connections[t].onTransformChange()}},{key:"activate",value:function(t){}},{key:"contains",value:function(t){var e=new Transform(this.target,V(IO_PORT_RADIUS,IO_PORT_RADIUS).scale(2),0,this.parent.context.getCamera());return e.setParent(this.parent.transform),circleContains(e,t)}},{key:"sContains",value:function(t){var e=Math.atan2(this.target.y-this.origin.y,this.target.x-this.origin.x),i=this.origin.distanceTo(this.target),n=this.target.add(this.origin).scale(.5),r=new Transform(n,V(i,2*IO_PORT_LINE_WIDTH),e,this.parent.context.getCamera());return r.setParent(this.parent.transform),rectContains(r,t)}},{key:"draw",value:function(){this.set||this.getArray().length===this.prevParentLength||this.updatePosition();var t=this.origin,e=this.target,i=this.parent.getRenderer(),n=this.parent.getBorderColor()?this.parent.getBorderColor():this.lineColor;i.line(t.x,t.y,e.x,e.y,n,IO_PORT_LINE_WIDTH);var r=this.getCol()?this.getCol():DEFAULT_FILL_COLOR,a=this.getBorderColor()?this.getBorderColor():DEFAULT_BORDER_COLOR;i.circle(e.x,e.y,IO_PORT_RADIUS,r,a,IO_PORT_BORDER_WIDTH)}},{key:"remove",value:function(){}},{key:"setOrigin",value:function(t){this.origin.x=t.x,this.origin.y=t.y,this.set=!0,void 0!=this.parent&&this.parent.onTransformChange()}},{key:"setTarget",value:function(t){this.target.x=t.x,this.target.y=t.y,this.set=!0,void 0!=this.parent&&this.parent.onTransformChange()}},{key:"getPos",value:function(){return this.parent.transform.getMatrix().mul(this.target)}},{key:"getOPos",value:function(){return this.parent.transform.getMatrix().mul(this.origin)}},{key:"getDir",value:function(){return this.parent.transform.getMatrix().mul(this.dir).sub(this.parent.getPos()).normalize()}},{key:"setName",value:function(t){}},{key:"setPos",value:function(){}},{key:"getInputAmount",value:function(){return 1}},{key:"getMaxInputFieldCount",value:function(){return 1}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getName",value:function(){return this.getDisplayName()}},{key:"getDisplayName",value:function(){return"ioport"}},{key:"getXMLName",value:function(){return this.getDisplayName().toLowerCase().replace(/\s+/g,"")}},{key:"copy",value:function(){var t=new this.constructor;return t.origin=this.origin.copy(),t.target=this.target.copy(),t.set=this.set,t.lineColor=this.lineColor,t}},{key:"writeTo",value:function(t){var e=createChildNode(t,this.getXMLName());createTextElement(e,"originx",this.origin.x),createTextElement(e,"originy",this.origin.y),createTextElement(e,"targetx",this.target.x),createTextElement(e,"targety",this.target.y)}},{key:"load",value:function(t){var e=getFloatValue(getChildNode(t,"originx")),i=getFloatValue(getChildNode(t,"originy")),n=getFloatValue(getChildNode(t,"targetx")),r=getFloatValue(getChildNode(t,"targety"));return this.setOrigin(V(e,i)),this.setTarget(V(n,r)),this}},{key:"uid",get:function(){return this.parent.uid}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),IPort=function(t){function e(t){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,V(-1,0)))}return _inherits(e,IOPort),_createClass(e,[{key:"getArray",value:function(){return this.parent.inputs}},{key:"activate",value:function(t){this.isOn!==t&&(this.isOn=t,this.parent.context.propogate(this,this.parent,this.isOn))}},{key:"remove",value:function(){void 0!=this.input&&this.input.disconnect(this)}},{key:"getDisplayName",value:function(){return"iport"}},{key:"input",set:function(t){void 0==t?this.connections=[]:this.connections[0]=t},get:function(){return this.connections.length>0?this.connections[0]:void 0}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),OPort=function(t){function e(t){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,V(1,0)))}return _inherits(e,IOPort),_createClass(e,[{key:"getArray",value:function(){return this.parent.outputs}},{key:"activate",value:function(t){if(this.isOn!==t){this.isOn=t;for(var e=0;e<this.connections.length;e++)this.parent.context.propogate(this,this.connections[e],this.isOn)}}},{key:"remove",value:function(){for(var t=0;t<this.connections.length;t++)this.disconnect(this.connections[t])}},{key:"connect",value:function(t){return this.connections.push(t),t.input=this,t.onTransformChange(),t.activate(this.isOn),!0}},{key:"disconnect",value:function(t){for(var e=0;e<this.connections.length&&this.connections[e]!==t;e++);this.connections[e].input=void 0,this.connections.splice(e,1)}},{key:"getDisplayName",value:function(){return"oport"}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var n=e[i];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,i,n){return i&&t(e.prototype,i),n&&t(e,n),e}}(),Wire=function(){function t(e){_classCallCheck(this,t),this.context=e,this.input=void 0,this.connection=void 0,this.curve=new BezierCurve(V(0,0),V(0,0),V(0,0),V(0,0)),this.isOn=!1,this.set=!1,this.straight=!1,this.dirty=!0,this.boundingBox=new Transform(0,0,0,e.getCamera())}return _createClass(t,[{key:"activate",value:function(t){this.isOn!==t&&(this.isOn=t,void 0!=this.connection&&this.connection.activate(t))}},{key:"split",value:function(e){var i=this.curve.getPos(e),n=new t(this.context),o=this.connection;this.disconnect();var s=new WirePort(this.context);this.connect(s),n.connect(o),s.connect(n),this.connection.setPos(i),getCurrentContext().addObject(s),getCurrentContext().addWire(n)}},{key:"updateBoundingBox",value:function(){if(this.dirty){this.dirty=!1;var t=this.getPos(0),e=this.getPos(1),i=V(Math.min(t.x,e.x),Math.min(t.y,e.y)),n=V(Math.max(t.x,e.x),Math.max(t.y,e.y));this.boundingBox.setSize(V(n.x-i.x+2,n.y-i.y+2)),this.boundingBox.setPos(V((n.x-i.x)/2+i.x,(n.y-i.y)/2+i.y))}}},{key:"onTransformChange",value:function(){if(void 0!=this.input){t=this.input.getPos();if(this.set)this.curve.c1.x+=t.x-this.curve.p1.x,this.curve.c1.y+=t.y-this.curve.p1.y;else{i=(e=this.input instanceof WirePort?this.input.getODir():this.input.getDir()).scale(DEFAULT_SIZE).add(t);this.curve.c1.x=i.x,this.curve.c1.y=i.y}this.curve.p1.x=t.x,this.curve.p1.y=t.y,this.curve.dirty=!0,this.dirty=!0}if(void 0!=this.connection){var t=this.connection.getPos();if(this.set)this.curve.c2.x+=t.x-this.curve.p2.x,this.curve.c2.y+=t.y-this.curve.p2.y;else{var e=this.connection.getDir(),i=e.scale(DEFAULT_SIZE).add(t);this.curve.c2.x=i.x,this.curve.c2.y=i.y}this.curve.p2.x=t.x,this.curve.p2.y=t.y,this.curve.dirty=!0,this.dirty=!0}}},{key:"connect",value:function(t){return void 0==this.connection&&void 0==t.input&&(this.connection=t,t.input=this,this.onTransformChange(),t.activate(this.isOn),!0)}},{key:"disconnect",value:function(){if(void 0==this.connection)return!1;this.connection.input=void 0,this.connection.activate(!1),this.connection=void 0}},{key:"draw",value:function(){var t=this.context.getRenderer(),e=this.context.getCamera(),i=this.isOn?"#3cacf2":this.selected?"#1cff3e":DEFAULT_FILL_COLOR;if(this.straight){var n=e.getScreenPos(this.curve.p1),o=e.getScreenPos(this.curve.p2);t.line(n.x,n.y,o.x,o.y,i,7/e.zoom)}else this.curve.draw(i,7/e.zoom,t)}},{key:"remove",value:function(){this.context.remove(this),void 0!=this.input&&this.input.disconnect(this),void 0!=this.connection&&this.disconnect(this.connection)}},{key:"contains",value:function(t){return-1!==this.curve.getNearestT(t.x,t.y)}},{key:"setName",value:function(t){}},{key:"setPos",value:function(){}},{key:"getPos",value:function(t){return void 0==t&&(t=.5),this.curve.getPos(t)}},{key:"getNearestT",value:function(t){function e(e,i){return t.apply(this,arguments)}return e.toString=function(){return t.toString()},e}(function(t,e){return this.straight?getNearestT(this.curve.p1,this.curve.p2,t,e):this.curve.getNearestT(t,e)})},{key:"getCullBox",value:function(){return this.straight?this.getBoundingBox():this.curve.getBoundingBox()}},{key:"getBoundingBox",value:function(){if(this.straight)return this.updateBoundingBox(),this.boundingBox}},{key:"getInputAmount",value:function(){return 1}},{key:"getMaxInputFieldCount",value:function(){return 1}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getName",value:function(){return this.getDisplayName()}},{key:"getDisplayName",value:function(){return"Wire"}},{key:"copy",value:function(){var e=new t(this.context);return e.curve=this.curve.copy(),e.straight=this.straight,e}},{key:"writeTo",value:function(t,e,i){var n=createChildNode(t,"wire");createTextElement(n,"uid",this.uid);var o=createChildNode(n,"input");createTextElement(o,"uid",this.input.uid),createTextElement(o,"index",this.input.getIndex());var s=createChildNode(n,"connection");createTextElement(s,"uid",this.connection.uid),createTextElement(s,"index",this.connection.getIndex()),this.curve.writeTo(n),createTextElement(n,"straight",this.straight)}},{key:"load",value:function(t){this.context.getObjects(),this.context.getWires();var e=getIntValue(getChildNode(t,"uid"));this.uid=e;var i=getChildNode(t,"bezier");this.curve.load(i);var n=getBooleanValue(getChildNode(t,"straight"));return this.straight=n,this}},{key:"loadConnections",value:function(t,e){var i=getChildNode(t,"input"),n=getIntValue(getChildNode(i,"uid")),o=getIntValue(getChildNode(i,"index")),s=findByUID(e,n);s=s instanceof WirePort?s:s.outputs[o];var c=getChildNode(t,"connection"),r=getIntValue(getChildNode(c,"uid")),u=getIntValue(getChildNode(c,"index")),h=findByUID(e,r);console.log(r),console.log(u),console.log(h),h=h instanceof WirePort?h:h.inputs[u],s.connect(this),this.connect(h)}}]),t}();
-"use strict";function _classCallCheck(t,n){if(!(t instanceof n))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,n){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!n||"object"!=typeof n&&"function"!=typeof n?t:n}function _inherits(t,n){if("function"!=typeof n&&null!==n)throw new TypeError("Super expression must either be null or a function, not "+typeof n);t.prototype=Object.create(n&&n.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),n&&(Object.setPrototypeOf?Object.setPrototypeOf(t,n):t.__proto__=n)}function snap(t,n,e){return Math.abs(n-e)<=WIRE_SNAP_THRESHOLD?(t.straight=!0,e):n}var _createClass=function(){function t(t,n){for(var e=0;e<n.length;e++){var i=n[e];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(t,i.key,i)}}return function(n,e,i){return e&&t(n.prototype,e),i&&t(n,i),n}}(),_get=function t(n,e,i){null===n&&(n=Function.prototype);var o=Object.getOwnPropertyDescriptor(n,e);if(void 0===o){var r=Object.getPrototypeOf(n);return null===r?void 0:t(r,e,i)}if("value"in o)return o.value;var s=o.get;if(void 0!==s)return s.call(i)},WirePort=function(t){function n(t){_classCallCheck(this,n);var e=_possibleConstructorReturn(this,(n.__proto__||Object.getPrototypeOf(n)).call(this,t,0,0,2*IO_PORT_RADIUS,2*IO_PORT_RADIUS));return e._input=void 0,e.connection=void 0,e.isOn=!1,e.selected=!1,e.hasSetTransform=!1,e}return _inherits(n,IOObject),_createClass(n,[{key:"activate",value:function(t){this.isOn!==t&&(this.isOn=t,void 0!=this.connection&&this.connection.activate(t))}},{key:"remove",value:function(){this.context.remove(this),void 0!=this.input&&this.input.disconnect(this),void 0!=this.connection&&this.disconnect(this.connection)}},{key:"setTransform",value:function(t){this.transform=t,this.setPos(t.pos)}},{key:"onTransformChange",value:function(){void 0!=this.input&&this.input.onTransformChange(),void 0!=this.connection&&this.connection.onTransformChange()}},{key:"connect",value:function(t){return void 0==this.connection&&(this.connection=t,t.input=this,t.onTransformChange(),t.activate(this.isOn),!0)}},{key:"disconnect",value:function(){void 0!=this.connection&&(this.connection.input=void 0,this.connection=void 0)}},{key:"draw",value:function(){var t=this.context.getRenderer(),n=this.context.getCamera(),e=n.getScreenPos(this.getPos());t.circle(e.x,e.y,7/n.zoom,this.selected?"#1cff3e":"#ffffff",this.selected?"#0d7f1f":"#000000",1/n.zoom)}},{key:"contains",value:function(t){return circleContains(this.transform,t)}},{key:"sContains",value:function(t){return this.contains(t)}},{key:"setPos",value:function(t){void 0!=this.input&&void 0!=this.connection&&(this.input.straight=!1,this.connection.straight=!1,t.x=snap(this.input,t.x,this.input.curve.p1.x),t.y=snap(this.input,t.y,this.input.curve.p1.y),t.x=snap(this.connection,t.x,this.connection.curve.p2.x),t.y=snap(this.connection,t.y,this.connection.curve.p2.y)),_get(n.prototype.__proto__||Object.getPrototypeOf(n.prototype),"setPos",this).call(this,t)}},{key:"getIndex",value:function(){return 0}},{key:"getDir",value:function(){return this.transform.getMatrix().mul(V(-1,0)).sub(this.transform.pos).normalize()}},{key:"getODir",value:function(){return this.transform.getMatrix().mul(V(1,0)).sub(this.transform.pos).normalize()}},{key:"getCullBox",value:function(){return this.transform}},{key:"getInputAmount",value:function(){return 1}},{key:"getName",value:function(){return this.getDisplayName()}},{key:"getDisplayName",value:function(){return"Port"}},{key:"input",set:function(t){this._input=t,this.hasSetTransform||(this.hasSetTransform=!0,this.transform=new Transform(t.curve.p2.copy(),V(15,15),0,this.context.getCamera()))},get:function(){return this._input}}]),n}();WirePort.getXMLName=function(){return"port"},Importer.types.push(WirePort);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var c=n.get;if(void 0!==c)return c.call(r)},ItemTool=function(t){function e(){_classCallCheck(this,e);var t=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this));return t.item=void 0,t}return _inherits(e,Tool),_createClass(e,[{key:"activate",value:function(t,o){void 0!=this.item&&o.remove(this.item),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this),this.item=t,o.addObject(this.item),this.onMouseMove()}},{key:"deactivate",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"deactivate",this).call(this),this.item=void 0}},{key:"onMouseMove",value:function(){return this.item.setPos(Input.getWorldMousePos()),!0}},{key:"onClick",value:function(){this.item.setPos(Input.getWorldMousePos());var t=new PlaceAction(this.item);return getCurrentContext().addAction(t),selectionTool.activate(),!0}}]),e}(),itemTool=new ItemTool;
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),SelectionTool=function(e){function t(){_classCallCheck(this,t);var e=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return e.selections=[],e.midpoint=V(0,0),e}return _inherits(t,Tool),_createClass(t,[{key:"onKeyDown",value:function(e,t){return console.log(e),!!icdesigner.hidden&&(e===A_KEY&&Input.getModifierKeyDown()?(this.selectAll(),!0):void 0)}},{key:"onMouseDown",value:function(){var e=getCurrentContext().getObjects(),t=(getCurrentContext().getWires(),Input.getWorldMousePos());if(!icdesigner.hidden)return!1;for(var n=e.length-1;n>=0;n--){var o=e[n];if(o.contains(t))return o.isPressable&&o.press(),!0;if(o.sContains(t))return;if(-1!==o.oPortContains(t)||-1!==o.iPortContains(t))return}}},{key:"onMouseMove",value:function(){}},{key:"onMouseUp",value:function(){var e=getCurrentContext().getObjects();getCurrentContext().getWires(),Input.getWorldMousePos();if(!icdesigner.hidden)return!1;popup.update();for(var t=0;t<e.length;t++){var n=e[t];if(n.isPressable&&n.isOn&&!Input.isDragging)return n.release(),!0}}},{key:"onClick",value:function(){var e=getCurrentContext().getObjects(),t=(getCurrentContext().getWires(),Input.getWorldMousePos());if(!icdesigner.hidden||Input.getIsDragging())return!1;for(var n=e.length-1;n>=0;n--){var o=e[n];if(o.sContains(t)){if(o.selected)return!1;if(!Input.getShiftKeyDown()&&this.selections.length>0){this.deselectAll(!0);var r=getCurrentContext().designer.history.undoStack.pop();this.select([o],!0);var i=getCurrentContext().designer.history.undoStack.pop(),s=new GroupAction;void 0!=r&&s.add(r),s.add(i),getCurrentContext().addAction(s)}else this.select([o],!0);return!0}if(o.contains(t))return o.click(),!0}return!Input.getShiftKeyDown()&&this.selections.length>0?(this.deselectAll(!0),!0):void 0}},{key:"select",value:function(e,t){if(0!==e.length){for(var n=new GroupAction,o=0;o<e.length;o++){var r=e[o];r.selected||(r.selected=!0,this.selections.push(r),this.sendToFront(r),t&&n.add(new SelectAction(r)))}t&&getCurrentContext().addAction(n),popup.update(),this.recalculateMidpoint()}}},{key:"deselect",value:function(e,t){if(0!==e.length){for(var n=new GroupAction,o=0;o<e.length;o++){var r=e[o];r.selected?(r.selected=!1,this.selections.splice(this.selections.indexOf(r),1),t&&n.add(new SelectAction(r,!0))):console.error("Can't deselect an unselected object! "+r)}t&&getCurrentContext().addAction(n),popup.update(),this.recalculateMidpoint()}}},{key:"selectAll",value:function(){this.deselectAll(!0),this.select(getCurrentContext().getObjects(),!0)}},{key:"deselectAll",value:function(e){for(var t=[],n=0;n<this.selections.length;n++)t.push(this.selections[n]);this.deselect(t,e)}},{key:"sendToFront",value:function(e){(e instanceof IOObject||e instanceof Wire)&&(getCurrentContext().remove(e),getCurrentContext().add(e))}},{key:"recalculateMidpoint",value:function(){this.midpoint=V(0,0);for(var e=0;e<this.selections.length;e++)this.midpoint.translate(this.selections[e].getPos());this.midpoint=this.midpoint.scale(1/this.selections.length)}},{key:"draw",value:function(e){var t=e.getCamera();if(this.selections.length>0&&!this.drag){var n=t.getScreenPos(this.midpoint),o=ROTATION_CIRCLE_RADIUS/t.zoom,r=ROTATION_CIRCLE_THICKNESS/t.zoom;TransformController.draw(e),e.circle(n.x,n.y,o,void 0,"#ff0000",r,.5)}SelectionBox.draw(e)}}]),t}(),selectionTool=new SelectionTool;
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var r=t[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(t,o,r){return o&&e(t.prototype,o),r&&e(t,r),t}}(),_get=function e(t,o,r){null===t&&(t=Function.prototype);var i=Object.getOwnPropertyDescriptor(t,o);if(void 0===i){var n=Object.getPrototypeOf(t);return null===n?void 0:e(n,o,r)}if("value"in i)return i.value;var c=i.get;if(void 0!==c)return c.call(r)},WiringTool=function(e){function t(){_classCallCheck(this,t);var e=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return e.clickOPort=!1,e.wire=void 0,e}return _inherits(t,Tool),_createClass(t,[{key:"onKeyUp",value:function(e,t){e===ESC_KEY&&(this.removeWire(),selectionTool.activate(),render())}},{key:"activate",value:function(e,o){_get(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"activate",this).call(this),console.log(e),this.wire=new Wire(o),this.clickOPort=e instanceof OPort;(this.clickOPort?e.connect(this.wire):this.wire.connect(e))?(this.onMouseMove(),o.addWire(this.wire)):selectionTool.activate()}},{key:"deactivate",value:function(){_get(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"deactivate",this).call(this),this.wire=void 0}},{key:"removeWire",value:function(){getCurrentContext().remove(this.wire),this.clickOPort?this.wire.input.disconnect(this.wire):this.wire.disconnect()}},{key:"onMouseMove",value:function(){return this.clickOPort?this.wire.curve.update(this.wire.curve.p1,Input.getWorldMousePos(),this.wire.curve.c1,Input.getWorldMousePos()):this.wire.curve.update(Input.getWorldMousePos(),this.wire.curve.p2,Input.getWorldMousePos(),this.wire.curve.c2),!0}},{key:"onClick",value:function(){for(var e=getCurrentContext().getObjects(),t=Input.getWorldMousePos(),o=0;o<e.length;o++){var r=-1;if(this.clickOPort&&-1!==(r=e[o].iPortContains(t))&&(this.wire.connect(e[o].inputs[r])||this.removeWire()),this.clickOPort||-1===(r=e[o].oPortContains(t))||e[o].outputs[r].connect(this.wire)||this.removeWire(),-1!==r){var i=new PlaceWireAction(this.wire);return getCurrentContext().addAction(i),selectionTool.activate(),!0}}return this.removeWire(),selectionTool.activate(),!0}}]),t}(),wiringTool=new WiringTool;
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var n=t[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,o,n){return o&&e(t.prototype,o),n&&e(t,n),t}}(),_get=function e(t,o,n){null===t&&(t=Function.prototype);var r=Object.getOwnPropertyDescriptor(t,o);if(void 0===r){var u=Object.getPrototypeOf(t);return null===u?void 0:e(u,o,n)}if("value"in r)return r.value;var c=r.get;if(void 0!==c)return c.call(n)},ContextMenu=function(e){function t(){_classCallCheck(this,t);var e=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,"context-menu"));return e.add(new CutModule(e,"context-menu-cut")),e.add(new CopyModule(e,"context-menu-copy")),e.add(new PasteModule(e,"context-menu-paste")),e.add(new SelectAllModule(e,"context-menu-select-all")),e.add(new UndoModule(e,"context-menu-undo")),e.add(new RedoModule(e,"context-menu-redo")),e}return _inherits(t,Popup),_createClass(t,[{key:"onKeyDown",value:function(e){e!==ESC_KEY||this.hidden||this.hide()}},{key:"onShow",value:function(){_get(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"onShow",this).call(this);var e=Input.getRawMousePos();this.setPos(V(e.x,e.y))}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),CopyModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(0==selectionTool.selections.length)}},{key:"onClick",value:function(){this.parent.hide(),document.execCommand("copy")}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),CutModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(0==selectionTool.selections.length)}},{key:"onClick",value:function(){this.parent.hide(),document.execCommand("cut")}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),PasteModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(!1)}},{key:"onClick",value:function(){this.parent.hide(),document.execCommand("copy")}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(t,n,r){return n&&e(t.prototype,n),r&&e(t,r),t}}(),RedoModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(0==getCurrentContext().designer.history.redoStack.length)}},{key:"onClick",value:function(){this.parent.hide(),getCurrentContext().designer.history.redo()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),SelectAllModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(!1)}},{key:"onClick",value:function(){this.parent.hide(),selectionTool.selectAll(),render()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(t,n,r){return n&&e(t.prototype,n),r&&e(t,r),t}}(),UndoModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){this.setDisabled(0==getCurrentContext().designer.history.undoStack.length)}},{key:"onClick",value:function(){this.parent.hide(),getCurrentContext().designer.history.undo()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),BusButtonModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=0,t=0,n=selectionTool.selections,o=0;o<n.length;o++)if(n[o]instanceof IPort)e++;else{if(!(n[o]instanceof OPort))return void this.setVisibility("none");t++}this.setVisibility(e===t?"inherit":"none")}},{key:"onClick",value:function(){this.createBus()}},{key:"createBus",value:function(){for(var e=selectionTool.selections,t=[],n=[],o=0;o<e.length;o++)e[o]instanceof IPort?t.push(e[o]):n.push(e[o]);for(;n.length>0;){for(var r=-1/0,i=-1,s=-1,o=0;o<n.length;o++){for(var c=n[o].getPos(),l=1/0,u=-1,a=0;a<t.length;a++){var f=t[a],h=c.sub(f.getPos()).len2();h<l&&(l=h,u=a)}l>r&&(r=l,i=o,s=u)}var p=new Wire(context);getCurrentContext().add(p),n[i].connect(p),p.connect(t[s]),p.set=!0,p.straight=!0,n.splice(i,1),t.splice(s,1)}render()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var n=t[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,o,n){return o&&e(t.prototype,o),n&&e(t,n),t}}(),ColorPickerModule=function(e){function t(e,o,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,o,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=!0,t=!0,o=selectionTool.selections,n=0;n<o.length;n++)(e=e&&o[n]instanceof LED)&&(t=t&&o[n].color===o[0].color);this.setVisibility(e?"inherit":"none"),this.setValue(e&&t?o[0].color:"#ffffff")}},{key:"onChange",value:function(){for(var e=selectionTool.selections,t=0;t<e.length;t++)e[t].color=this.getValue()}},{key:"onFocus",value:function(){this.parent.focused=!0}},{key:"onBlur",value:function(){this.parent.focused=!1,this.onChange()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),ICButtonModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=0,t=selectionTool.selections,n=0;n<t.length;n++)t[n]instanceof IOObject&&!(t[n]instanceof WirePort)&&e++;this.setVisibility(e>=2?"inherit":"none")}},{key:"onClick",value:function(){icdesigner.show(selectionTool.selections)}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),InputCountModule=function(t){function e(t,n,o){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,n,o))}return _inherits(e,Module),_createClass(e,[{key:"onShow",value:function(){for(var t=!0,e=!0,n=0,o=999,r=selectionTool.selections,i=0;i<r.length;i++)e=e&&r[i].maxInputs>1&&!0!==r[i].noChange,t=t&&r[i].getInputAmount()===r[0].getInputAmount(),n=Math.max(r[i].getMinInputFieldCount(),n),o=Math.min(r[i].getMaxInputFieldCount(),o);this.setValue(t?r[0].getInputAmount():""),this.setPlaceholder(t?"":"-"),this.setVisibility(e?"inherit":"none"),this.div.min=n,this.div.max=o}},{key:"onChange",value:function(){for(var t=selectionTool.selections,e=0;e<t.length;e++)t[e].setInputAmount(Number(this.getValue()))}}]),e}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var n=t[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,o,n){return o&&e(t.prototype,o),n&&e(t,n),t}}(),PositionXModule=function(e){function t(e,o){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,o))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=!0,t=selectionTool.selections,o=0;o<t.length;o++)e=e&&t[o].getPos().x===t[0].getPos().x;this.setValue(e?+(t[0].getPos().x/GRID_SIZE-.5).toFixed(3):""),this.setPlaceholder(e?"":"-")}},{key:"onChange",value:function(){for(var e=new GroupAction,t=selectionTool.selections,o=0;o<t.length;o++){if(!t[o].transform)return void this.onShow();var n=t[o].transform.copy();t[o].setPos(V(GRID_SIZE*(Number(this.getValue())+.5),t[o].transform.getPos().y));var r=t[o].transform.copy();e.add(new TransformAction(t[o],n,r))}getCurrentContext().addAction(e)}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var n=t[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,o,n){return o&&e(t.prototype,o),n&&e(t,n),t}}(),PositionYModule=function(e){function t(e,o){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,o))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=!0,t=selectionTool.selections,o=0;o<t.length;o++)e=e&&t[o].getPos().y===t[0].getPos().y;this.setValue(e?+(t[0].getPos().y/GRID_SIZE-.5).toFixed(3):""),this.setPlaceholder(e?"":"-")}},{key:"onChange",value:function(){for(var e=new GroupAction,t=selectionTool.selections,o=0;o<t.length;o++){if(!t[o].transform)return void this.onShow();var n=t[o].transform.copy();t[o].setPos(V(t[o].transform.getPos().x,GRID_SIZE*(Number(this.getValue())+.5)));var r=t[o].transform.copy();e.add(new TransformAction(t[o],n,r))}getCurrentContext().addAction(e)}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var o=0;o<t.length;o++){var n=t[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,o,n){return o&&e(t.prototype,o),n&&e(t,n),t}}(),SelectionPopup=function(e){function t(){_classCallCheck(this,t);var e=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,"popup"));return e.add(new TitleModule(e,"popup-name")),e.add(new PositionXModule(e,"popup-position-x")),e.add(new PositionYModule(e,"popup-position-y")),e.add(new InputCountModule(e,"popup-input-count","popup-input-count-text")),e.add(new ColorPickerModule(e,"popup-color-picker","popup-color-text")),e.add(new ICButtonModule(e,"popup-ic-button")),e.add(new BusButtonModule(e,"popup-bus-button")),e}return _inherits(t,Popup),_createClass(t,[{key:"onKeyDown",value:function(e){if(e!==DELETE_KEY&&e!==BACKSPACE_KEY||this.focused)return e!==ESC_KEY||this.hidden?void 0:(selectionTool.deselectAll(),void render());RemoveObjects(getCurrentContext(),selectionTool.selections,!0)}},{key:"onEnter",value:function(){this.blur()}},{key:"update",value:function(){selectionTool.selections.length>0?(this.show(),this.onMove()):this.hide()}},{key:"onMove",value:function(){var e=getCurrentContext().getCamera();if(selectionTool.selections.length>0){selectionTool.recalculateMidpoint();var t=e.getScreenPos(selectionTool.midpoint);t.y-=this.div.clientHeight/2,this.setPos(t)}}},{key:"onWheel",value:function(){this.onMove()}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),TitleModule=function(e){function t(e,n){return _classCallCheck(this,t),_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,n))}return _inherits(t,Module),_createClass(t,[{key:"onShow",value:function(){for(var e=!0,t=selectionTool.selections,n=0;n<t.length;n++)e=e&&t[n].getName()===t[0].getName();this.setValue(e?t[0].getName():"<Multiple>")}},{key:"onChange",value:function(){for(var e=selectionTool.selections,t=0;t<e.length;t++)e[t].setName(this.getValue())}},{key:"onFocus",value:function(){this.parent.focused=!0}},{key:"onBlur",value:function(){this.parent.focused=!1,this.onChange()}}]),t}();
-"use strict";function _classCallCheck(e,n){if(!(e instanceof n))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,n){for(var t=0;t<n.length;t++){var r=n[t];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(n,t,r){return t&&e(n.prototype,t),r&&e(n,r),n}}(),Action=function(){function e(){_classCallCheck(this,e),this.context=getCurrentContext(),saved=!1}return _createClass(e,[{key:"undo",value:function(){}},{key:"redo",value:function(){}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),DeleteAction=function(t){function e(t,n,o){_classCallCheck(this,e);var r=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this));return r.obj=t,r.oldinput=n,r.oldconnection=o,r}return _inherits(e,Action),_createClass(e,[{key:"undo",value:function(){this.context.add(this.obj),void 0!=this.oldinput&&this.oldinput.connect(this.obj),void 0!=this.oldconnection&&this.obj.connect(this.oldconnection)}},{key:"redo",value:function(){this.obj.remove()}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var o=e[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,n,o){return n&&t(e.prototype,n),o&&t(e,o),e}}(),GroupAction=function(t){function e(){_classCallCheck(this,e);var t=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this));return t.actions=[],t}return _inherits(e,Action),_createClass(e,[{key:"add",value:function(t){this.actions.push(t)}},{key:"undo",value:function(){for(var t=this.actions.length-1;t>=0;t--)this.actions[t].undo()}},{key:"redo",value:function(){for(var t=0;t<this.actions.length;t++)this.actions[t].redo()}}]),e}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),PlaceAction=function(e){function t(e){_classCallCheck(this,t);var n=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return n.obj=e,n}return _inherits(t,Action),_createClass(t,[{key:"undo",value:function(){this.context.remove(this.obj)}},{key:"redo",value:function(){this.context.addObject(this.obj)}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var r=t[n];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(e,r.key,r)}}return function(t,n,r){return n&&e(t.prototype,n),r&&e(t,r),t}}(),PlaceWireAction=function(e){function t(e){_classCallCheck(this,t);var n=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return n.wire=e,n.input=n.wire.input,n.connection=n.wire.connection,n}return _inherits(t,Action),_createClass(t,[{key:"undo",value:function(){this.context.remove(this.wire),this.wire.disconnect(),this.wire.input.disconnect(this.wire)}},{key:"redo",value:function(){this.context.add(this.wire),this.wire.connect(this.connection),this.input.connect(this.wire)}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),SelectAction=function(e){function t(e,n){_classCallCheck(this,t);var o=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return o.obj=e,o.flip=n,o}return _inherits(t,Action),_createClass(t,[{key:"undo",value:function(){this.flip?this.reselect():this.deselect()}},{key:"redo",value:function(){this.flip?this.deselect():this.reselect()}},{key:"reselect",value:function(){selectionTool.select([this.obj])}},{key:"deselect",value:function(){selectionTool.deselect([this.obj])}}]),t}();
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var n=0;n<t.length;n++){var o=t[n];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(e,o.key,o)}}return function(t,n,o){return n&&e(t.prototype,n),o&&e(t,o),t}}(),SplitWireAction=function(e){function t(e){_classCallCheck(this,t);var n=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this));return n.wireport=e.connection,n.wire=e,n.newwire=n.wireport.connection,n.connection=n.newwire.connection,n}return _inherits(t,Action),_createClass(t,[{key:"undo",value:function(){this.context.remove(this.wireport),this.context.remove(this.newwire),this.wire.disconnect(),this.newwire.disconnect(),this.wire.connect(this.connection)}},{key:"redo",value:function(){this.context.add(this.wireport),this.context.add(this.newwire),this.wire.disconnect(),this.wire.connect(this.wireport),this.newwire.connect(this.connection)}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var n=e[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,o,n){return o&&t(e.prototype,o),n&&t(e,n),e}}(),TransformAction=function(t){function e(t,o,n){_classCallCheck(this,e);var r=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this));return r.obj=t,r.t0=o,r.t1=n,r}return _inherits(e,Action),_createClass(e,[{key:"undo",value:function(){this.obj.setTransform(this.t0),this.updatePopup()}},{key:"redo",value:function(){this.obj.setTransform(this.t1),this.updatePopup()}},{key:"updatePopup",value:function(){this.obj.selected&&(selectionTool.recalculateMidpoint(),popup.onMove())}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var s=e[i];s.enumerable=s.enumerable||!1,s.configurable=!0,"value"in s&&(s.writable=!0),Object.defineProperty(t,s.key,s)}}return function(e,i,s){return i&&t(e.prototype,i),s&&t(e,s),e}}(),BezierCurve=function(){function t(e,i,s,n){_classCallCheck(this,t),this.p1=V(e.x,e.y),this.p2=V(i.x,i.y),this.c1=V(s.x,s.y),this.c2=V(n.x,n.y),this.dirty=!0,this.boundingBox=new Transform(0,0,0,getCurrentContext().getCamera())}return _createClass(t,[{key:"update",value:function(t,e,i,s){this.p1.x=t.x,this.p1.y=t.y,this.p2.x=e.x,this.p2.y=e.y,this.c1.x=i.x,this.c1.y=i.y,this.c2.x=s.x,this.c2.y=s.y}},{key:"updateBoundingBox",value:function(){if(this.dirty){this.dirty=!1;var t=V(0,0),e=V(0,0),i=this.getPos(0),s=this.getPos(1),n=this.c1.sub(this.c2).scale(3).add(this.p2.sub(this.p1)),r=this.p1.sub(this.c1.scale(2).add(this.c2)).scale(2),h=this.c1.sub(this.p1),a=r.y*r.y-4*n.y*h.y,c=-1!==(a=a>=0?Math.sqrt(a):-1)?clamp((-r.y+a)/(2*n.y),0,1):0,u=-1!==a?clamp((-r.y-a)/(2*n.y),0,1):0;e.y=Math.max(this.getY(c),this.getY(u),i.y,s.y),t.y=Math.min(this.getY(c),this.getY(u),i.y,s.y);var o=r.x*r.x-4*n.x*h.x;-1!==(o=o>=0?Math.sqrt(o):-1)&&clamp((-r.x+o)/(2*n.x),0,1),-1!==o&&clamp((-r.x-o)/(2*n.x),0,1);e.x=Math.max(this.getX(c),this.getX(u),i.x,s.x),t.x=Math.min(this.getX(c),this.getX(u),i.x,s.x),this.boundingBox.setSize(V(e.x-t.x,e.y-t.y)),this.boundingBox.setPos(V((e.x-t.x)/2+t.x,(e.y-t.y)/2+t.y))}}},{key:"draw",value:function(t,e,i){var s=i.parent.camera,n=s.getScreenPos(this.p1),r=s.getScreenPos(this.p2),h=s.getScreenPos(this.c1),a=s.getScreenPos(this.c2);i.curve(n.x,n.y,r.x,r.y,h.x,h.y,a.x,a.y,t,e)}},{key:"getX",value:function(t){var e=1-t;return this.p1.x*e*e*e+3*this.c1.x*t*e*e+3*this.c2.x*t*t*e+this.p2.x*t*t*t}},{key:"getY",value:function(t){var e=1-t;return this.p1.y*e*e*e+3*this.c1.y*t*e*e+3*this.c2.y*t*t*e+this.p2.y*t*t*t}},{key:"getPos",value:function(t){return V(this.getX(t),this.getY(t))}},{key:"getDX",value:function(t){var e=1-t;return-3*this.p1.x*e*e+3*this.c1.x*e*(1-3*t)+3*this.c2.x*t*(2-3*t)+3*this.p2.x*t*t}},{key:"getDY",value:function(t){var e=1-t;return-3*this.p1.y*e*e+3*this.c1.y*e*(1-3*t)+3*this.c2.y*t*(2-3*t)+3*this.p2.y*t*t}},{key:"getVel",value:function(t){return V(this.getDX(t),this.getDY(t))}},{key:"getDDX",value:function(t){return 6*((-this.p1.x+3*this.c1.x-3*this.c2.x+this.p2.x)*t+(this.p1.x-2*this.c1.x+this.c2.x))}},{key:"getDDY",value:function(t){return 6*((-this.p1.y+3*this.c1.y-3*this.c2.y+this.p2.y)*t+(this.p1.y-2*this.c1.y+this.c2.y))}},{key:"getDist",value:function(t,e,i){var s=this.getX(t)-e,n=this.getY(t)-i;return Math.sqrt(s*s+n*n)}},{key:"getDist2",value:function(t,e,i){var s=this.getX(t)-e,n=this.getY(t)-i;return s*s+n*n}},{key:"getDistDenominator",value:function(t,e,i){var s=this.getX(t)-e,n=this.getY(t)-i;return s*s+n*n}},{key:"getDistDenominatorDerivative",value:function(t,e,i){return 2*(this.getX(t)-e)*this.getDX(t)+2*(this.getY(t)-i)*this.getDY(t)}},{key:"getDistNumerator",value:function(t,e,i){var s=this.getX(t)-e,n=this.getY(t)-i;return this.getDX(t)*s+this.getDY(t)*n}},{key:"getDistNumeratorDerivative",value:function(t,e,i){var s=this.getX(t)-e,n=this.getY(t)-i,r=this.getDX(t),h=this.getDY(t);return r*r+s*this.getDDX(t)+h*h+n*this.getDDY(t)}},{key:"getNearestT",value:function(t,e){for(var i=this,s=1e20,n=-1,r=0;r<=1;r+=1/WIRE_DIST_ITERATIONS){var h=this.getDist(r,t,e);h<s&&(n=r,s=h)}var a=findRoots(WIRE_NEWTON_ITERATIONS,n,t,e,function(t,e,s){return i.getDistDenominator(t,e,s)},function(t,e,s){return i.getDistDenominatorDerivative(t,e,s)});if(this.getDist2(a,t,e)<WIRE_DIST_THRESHOLD2)return a;var c=findRoots(WIRE_NEWTON_ITERATIONS,n,t,e,function(t,e,s){return i.getDistNumerator(t,e,s)},function(t,e,s){return i.getDistNumeratorDerivative(t,e,s)});return this.getDist2(c,t,e)<WIRE_DIST_THRESHOLD2?c:-1}},{key:"getBoundingBox",value:function(){return this.updateBoundingBox(),this.boundingBox}},{key:"copy",value:function(){return new t(this.p1.copy(),this.p2.copy(),this.c1.copy(),this.c2.copy())}},{key:"writeTo",value:function(t){var e=createChildNode(t,"bezier");createTextElement(e,"p1x",this.p1.x),createTextElement(e,"p1y",this.p1.y),createTextElement(e,"p2x",this.p2.x),createTextElement(e,"p2y",this.p2.y),createTextElement(e,"c1x",this.c1.x),createTextElement(e,"c1y",this.c1.y),createTextElement(e,"c2x",this.c2.x),createTextElement(e,"c2y",this.c2.y)}},{key:"load",value:function(t){var e=V(getFloatValue(getChildNode(t,"p1x")),getFloatValue(getChildNode(t,"p1y"))),i=V(getFloatValue(getChildNode(t,"p2x")),getFloatValue(getChildNode(t,"p2y"))),s=V(getFloatValue(getChildNode(t,"c1x")),getFloatValue(getChildNode(t,"c1y"))),n=V(getFloatValue(getChildNode(t,"c2x")),getFloatValue(getChildNode(t,"c2y")));this.update(e,i,s,n)}}]),t}();
-"use strict";function _classCallCheck(t,a){if(!(t instanceof a))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,a){for(var i=0;i<a.length;i++){var s=a[i];s.enumerable=s.enumerable||!1,s.configurable=!0,"value"in s&&(s.writable=!0),Object.defineProperty(t,s.key,s)}}return function(a,i,s){return i&&t(a.prototype,i),s&&t(a,s),a}}(),Matrix2x3=function(){function t(a){if(_classCallCheck(this,t),this.mat=[],this.identity(),a instanceof t)for(var i=0;i<6;i++)this.mat[i]=a.mat[i]}return _createClass(t,[{key:"zero",value:function(){for(var t=0;t<6;t++)this.mat[t]=0;return this}},{key:"identity",value:function(){return this.zero(),this.mat[0]=1,this.mat[3]=1,this}},{key:"mul",value:function(t){var a=V(0,0);return a.x=this.mat[0]*t.x+this.mat[2]*t.y+this.mat[4],a.y=this.mat[1]*t.x+this.mat[3]*t.y+this.mat[5],a}},{key:"mult",value:function(a){var i=new t;return i.mat[0]=this.mat[0]*a.mat[0]+this.mat[2]*a.mat[1],i.mat[1]=this.mat[1]*a.mat[0]+this.mat[3]*a.mat[1],i.mat[2]=this.mat[0]*a.mat[2]+this.mat[2]*a.mat[3],i.mat[3]=this.mat[1]*a.mat[2]+this.mat[3]*a.mat[3],i.mat[4]=this.mat[0]*a.mat[4]+this.mat[2]*a.mat[5]+this.mat[4],i.mat[5]=this.mat[1]*a.mat[4]+this.mat[3]*a.mat[5]+this.mat[5],i}},{key:"translate",value:function(t){this.mat[4]+=this.mat[0]*t.x+this.mat[2]*t.y,this.mat[5]+=this.mat[1]*t.x+this.mat[3]*t.y}},{key:"rotate",value:function(t){var a=Math.cos(t),i=Math.sin(t),s=this.mat[0]*a+this.mat[2]*i,m=this.mat[1]*a+this.mat[3]*i,h=this.mat[0]*-i+this.mat[2]*a,e=this.mat[1]*-i+this.mat[3]*a;this.mat[0]=s,this.mat[1]=m,this.mat[2]=h,this.mat[3]=e}},{key:"scale",value:function(t){this.mat[0]*=t.x,this.mat[1]*=t.x,this.mat[2]*=t.y,this.mat[3]*=t.y}},{key:"inverse",value:function(){var a,i=new Array(6);if(i[0]=this.mat[3],i[1]=-this.mat[1],i[2]=-this.mat[2],i[3]=this.mat[0],i[4]=this.mat[2]*this.mat[5]-this.mat[4]*this.mat[3],i[5]=this.mat[4]*this.mat[1]-this.mat[0]*this.mat[5],0!=(a=this.mat[0]*this.mat[3]-this.mat[1]*this.mat[2])){a=1/a;for(var s=new t,m=0;m<6;m++)s.mat[m]=i[m]*a;return s}}},{key:"print",value:function(){console.log("["+this.mat[0].toFixed(3)+", "+this.mat[2].toFixed(3)+", "+this.mat[4].toFixed(3)+"]\n["+this.mat[1].toFixed(3)+", "+this.mat[3].toFixed(3)+", "+this.mat[5].toFixed(3)+"]")}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var s=e[i];s.enumerable=s.enumerable||!1,s.configurable=!0,"value"in s&&(s.writable=!0),Object.defineProperty(t,s.key,s)}}return function(e,i,s){return i&&t(e.prototype,i),s&&t(e,s),e}}(),Transform=function(){function t(e,i,s,r){_classCallCheck(this,t),this.parent=void 0,this.pos=V(e.x,e.y),this.size=V(i.x,i.y),this.angle=s,this.scale=V(1,1),this.corners=[],this.localCorners=[],this.camera=r,this.dirty=!0,this.dirtySize=!0,this.dirtyCorners=!0,this.updateMatrix()}return _createClass(t,[{key:"updateMatrix",value:function(t){this.dirty&&(this.dirty=!1,this.matrix=new Matrix2x3,this.matrix.translate(this.pos),this.matrix.rotate(this.angle),this.matrix.scale(this.scale),void 0!=this.parent&&(this.matrix=this.parent.getMatrix().mult(this.matrix)),this.inverse=this.matrix.inverse())}},{key:"updateSize",value:function(){this.dirtySize&&(this.dirtySize=!1,this.localCorners=[this.size.scale(V(-.5,.5)),this.size.scale(V(.5,.5)),this.size.scale(V(.5,-.5)),this.size.scale(V(-.5,-.5))],this.radius=Math.sqrt(this.size.x*this.size.x+this.size.y*this.size.y)/2)}},{key:"updateCorners",value:function(){if(this.dirtyCorners){this.dirtyCorners=!1;for(var t=this.getLocalCorners(),e=0;e<4;e++)this.corners[e]=this.toWorldSpace(t[e])}}},{key:"transformCtx",value:function(t){this.updateMatrix();var e=new Matrix2x3(this.matrix),i=this.camera.getScreenPos(V(e.mat[4],e.mat[5]));e.mat[4]=i.x,e.mat[5]=i.y,e.scale(V(1/this.camera.zoom,1/this.camera.zoom)),t.setTransform(e.mat[0],e.mat[1],e.mat[2],e.mat[3],e.mat[4],e.mat[5])}},{key:"rotateAbout",value:function(t,e){this.setAngle(t),this.setPos(this.pos.sub(e));var i=Math.cos(t),s=Math.sin(t),r=this.pos.x*i-this.pos.y*s,a=this.pos.y*i+this.pos.x*s;this.setPos(V(r,a).add(e)),this.dirty=!0,this.dirtyCorners=!0}},{key:"setParent",value:function(t){this.parent=t,this.dirty=!0,this.dirtyCorners=!0}},{key:"setCamera",value:function(t){this.camera=t}},{key:"setPos",value:function(t){this.pos.x=t.x,this.pos.y=t.y,this.dirty=!0,this.dirtyCorners=!0}},{key:"setAngle",value:function(t){this.angle=t,this.dirty=!0,this.dirtyCorners=!0}},{key:"setScale",value:function(t){this.scale.x=t.x,this.scale.y=t.y,this.dirty=!0}},{key:"setSize",value:function(t){this.size.x=t.x,this.size.y=t.y,this.dirtySize=!0,this.dirtyCorners=!0}},{key:"setWidth",value:function(t){this.size.x=t,this.dirtySize=!0,this.dirtyCorners=!0}},{key:"setHeight",value:function(t){this.size.y=t,this.dirtySize=!0,this.dirtyCorners=!0}},{key:"toLocalSpace",value:function(t){return this.getInverseMatrix().mul(t)}},{key:"toWorldSpace",value:function(t){return this.getMatrix().mul(t)}},{key:"getPos",value:function(){return V(this.pos.x,this.pos.y)}},{key:"getAngle",value:function(){return this.angle}},{key:"getScale",value:function(){return V(this.scale.x,this.scale.y)}},{key:"getSize",value:function(){return this.size}},{key:"getRadius",value:function(){return this.updateSize(),this.radius}},{key:"getMatrix",value:function(){return this.updateMatrix(),this.matrix}},{key:"getInverseMatrix",value:function(){return this.updateMatrix(),this.inverse}},{key:"getBottomLeft",value:function(){return this.updateCorners(),this.corners[0]}},{key:"getBottomRight",value:function(){return this.updateCorners(),this.corners[1]}},{key:"getTopRight",value:function(){return this.updateCorners(),this.corners[2]}},{key:"getTopLeft",value:function(){return this.updateCorners(),this.corners[3]}},{key:"getCorners",value:function(){return this.updateCorners(),this.corners}},{key:"getLocalCorners",value:function(){return this.updateSize(),this.localCorners}},{key:"equals",value:function(e){if(!(e instanceof t))return!1;for(var i=this.getMatrix().mat,s=e.getMatrix().mat,r=0;r<i.length;r++)if(i[r]!==s[r])return!1;return!0}},{key:"print",value:function(){this.updateMatrix(),this.matrix.print()}},{key:"copy",value:function(){var e=new t(this.pos.copy(),this.size.copy(),this.angle,this.camera);return e.scale=this.scale.copy(),e.dirty=!0,e}}]),t}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function V(t,e){return new Vector(t,e)}var _createClass=function(){function t(t,e){for(var n=0;n<e.length;n++){var i=e[n];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(t,i.key,i)}}return function(e,n,i){return n&&t(e.prototype,n),i&&t(e,i),e}}(),Vector=function(){function t(e,n){_classCallCheck(this,t),this.set(e,n)}return _createClass(t,[{key:"set",value:function(e,n){e instanceof t?(this.x=e.x?e.x:0,this.y=e.y?e.y:0):(this.x=e||0,this.y=n||0)}},{key:"translate",value:function(e,n){e instanceof t?this.set(this.add(e)):this.set(this.x+e,this.y+n)}},{key:"add",value:function(e,n){return e instanceof t?new t(this.x+e.x,this.y+e.y):new t(this.x+e,this.y+n)}},{key:"sub",value:function(e,n){return e instanceof t?new t(this.x-e.x,this.y-e.y):new t(this.x-e,this.y-n)}},{key:"scale",value:function(e){return e instanceof t?new t(e.x*this.x,e.y*this.y):new t(e*this.x,e*this.y)}},{key:"normalize",value:function(){var e=this.len();if(0===e)return new t(0,0);var n=1/e;return new t(this.x*n,this.y*n)}},{key:"len",value:function(){return Math.sqrt(this.x*this.x+this.y*this.y)}},{key:"len2",value:function(){return this.x*this.x+this.y*this.y}},{key:"distanceTo",value:function(t){return this.sub(t).len()}},{key:"dot",value:function(t){return this.x*t.x+this.y*t.y}},{key:"project",value:function(t){return this.scale(t.dot(this)/this.len2())}},{key:"copy",value:function(){return new t(this.x,this.y)}}]),t}();
-"use strict";function _classCallCheck(e,n){if(!(e instanceof n))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,n){for(var t=0;t<n.length;t++){var i=n[t];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(e,i.key,i)}}return function(n,t,i){return t&&e(n.prototype,t),i&&e(n,i),n}}(),Module=function(){function e(n,t,i){var u=this;_classCallCheck(this,e),this.parent=n,this.div=document.getElementById(t),this.divtext=i?document.getElementById(i):void 0,this.div.oninput=function(){render(),u.onChange()},this.div.onclick=function(){return u.onClick()},this.div.onfocus=function(){return u.onFocus()},this.div.onblur=function(){return u.onBlur()}}return _createClass(e,[{key:"blur",value:function(){this.div.blur()}},{key:"onShow",value:function(){}},{key:"setValue",value:function(e){this.div.value=e}},{key:"setPlaceholder",value:function(e){this.div.placeholder=e}},{key:"setVisibility",value:function(e){this.div.style.display=e,void 0!=this.divtext&&(this.divtext.style.display=e)}},{key:"setDisabled",value:function(e){this.div.disabled=e}},{key:"getValue",value:function(){return this.div.value}},{key:"onChange",value:function(){}},{key:"onClick",value:function(){}},{key:"onFocus",value:function(){this.parent.focused=!0}},{key:"onBlur",value:function(){this.parent.focused=!1}}]),e}();
-"use strict";function _classCallCheck(e,i){if(!(e instanceof i))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function e(e,i){for(var t=0;t<i.length;t++){var n=i[t];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(i,t,n){return t&&e(i.prototype,t),n&&e(i,n),i}}(),Popup=function(){function e(i){var t=this;_classCallCheck(this,e),this.div=document.getElementById(i),this.div.addEventListener("keydown",function(e){t.onKeyDown(e.keyCode)},!1),this.div.addEventListener("keyup",function(e){t.onKeyUp(e.keyCode)},!1),this.div.style.position="absolute",this.focused=!1,this.modules=[],this.setPos(V(0,0)),this.hide()}return _createClass(e,[{key:"onKeyDown",value:function(e){}},{key:"onKeyUp",value:function(e){}},{key:"add",value:function(e){this.modules.push(e)}},{key:"update",value:function(){this.onShow()}},{key:"onShow",value:function(){for(var e=0;e<this.modules.length;e++)this.modules[e].onShow()}},{key:"blur",value:function(){for(var e=0;e<this.modules.length;e++)this.modules[e].blur()}},{key:"show",value:function(){this.hidden=!1,this.div.style.visibility="visible",this.div.focus(),this.onShow()}},{key:"hide",value:function(){this.hidden=!0,this.div.style.visibility="hidden",this.div.blur()}},{key:"setPos",value:function(e){this.pos=V(e.x,e.y),this.clamp(),this.div.style.left=this.pos.x+"px",this.div.style.top=this.pos.y+"px"}},{key:"clamp",value:function(){this.pos.x=Math.max(Math.min(this.pos.x,window.innerWidth-this.div.clientWidth-1),ItemNavController.isOpen?ITEMNAV_WIDTH+5:5),this.pos.y=Math.max(Math.min(this.pos.y,window.innerHeight-this.div.clientHeight-1),(header?header.clientHeight:0)+5)}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var a=n.get;if(void 0!==a)return a.call(r)},Gate=function(t){function e(t,o,r,n,i){_classCallCheck(this,e);var a=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,n,DEFAULT_SIZE*(void 0!=i?i.ratio:1),DEFAULT_SIZE,i,!1,512,512));return a._not=!!o,a.name=a.getDisplayName(),a.setInputAmount(2),a}return _inherits(e,IOObject),_createClass(e,[{key:"activate",value:function(t,o){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,this.not?!t:t,o)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();if(this.localSpace(),this.not){var o=this.transform.size.x/2+5;t.circle(o,0,5,void 0==this.getCol()?"#fff":this.getCol(),this.getBorderColor(),2)}t.restore()}},{key:"getDisplayName",value:function(){return"Gate"}},{key:"copy",value:function(){var t=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"copy",this).call(this);return t.not=this.not,t}},{key:"writeTo",value:function(t){var o=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"writeTo",this).call(this,t);return createTextElement(o,"not",this.not),createTextElement(o,"inputcount",this.getInputAmount()),o}},{key:"load",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"load",this).call(this,t);var o=getBooleanValue(getChildNode(t,"not")),r=getIntValue(getChildNode(t,"inputcount"),1);return this.not=o,this.setInputAmount(r),this}},{key:"not",set:function(t){this._not=t,t&&(this.outputs[0].isOn=!this.isOn)},get:function(){return this._not}}]),e}();
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(r)},SRFlipFlop=function(t){function e(t,o,r){_classCallCheck(this,e);var n=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,!1,o,r,void 0));return n.noChange=!0,n.setInputAmount(3),n.setOutputAmount(2),n.transform.setSize(n.transform.size.scale(1.5)),n}return _inherits(e,Gate),_createClass(e,[{key:"onTransformChange",value:function(){this.transform.setSize(V(DEFAULT_SIZE,DEFAULT_SIZE)),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"onTransformChange",this).call(this),this.transform.setSize(V(1.5*DEFAULT_SIZE,1.5*DEFAULT_SIZE))}},{key:"activate",value:function(t){var o=this.outputs[0].isOn,r=this.inputs[0].isOn,n=this.inputs[1].isOn,i=this.inputs[2].isOn;n&&(r&&i||(r?o=!0:i&&(o=!1))),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,o,0),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,!o,1)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace(),t.rect(0,0,this.transform.size.x,this.transform.size.y,this.getCol(),this.getBorderColor()),t.restore()}},{key:"getDisplayName",value:function(){return"SR Flip Flop"}}]),e}();SRFlipFlop.getXMLName=function(){return"srff"},Importer.types.push(SRFlipFlop);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var n=e[o];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,o,n){return o&&t(e.prototype,o),n&&t(e,n),e}}(),_get=function t(e,o,n){null===e&&(e=Function.prototype);var r=Object.getOwnPropertyDescriptor(e,o);if(void 0===r){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,n)}if("value"in r)return r.value;var u=r.get;if(void 0!==u)return u.call(n)},Button=function(t){function e(t,o,n){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,o,n,DEFAULT_SIZE,DEFAULT_SIZE,images["buttonUp.svg"],!0,0,1,60,60))}return _inherits(e,IOObject),_createClass(e,[{key:"press",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,!0),this.img=images["buttonDown.svg"]}},{key:"release",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,!1),this.img=images["buttonUp.svg"]}},{key:"contains",value:function(t){return circleContains(this.transform,t)}},{key:"getDisplayName",value:function(){return"Button"}}]),e}();Button.getXMLName=function(){return"button"},Importer.types.push(Button);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var n=e[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,r,n){return r&&t(e.prototype,r),n&&t(e,n),e}}(),_get=function t(e,r,n){null===e&&(e=Function.prototype);var o=Object.getOwnPropertyDescriptor(e,r);if(void 0===o){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,n)}if("value"in o)return o.value;var c=o.get;if(void 0!==c)return c.call(n)},Clock=function(t){function e(t,r,n){_classCallCheck(this,e);var o=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,n,60,60/images["clock.svg"].ratio,images["clock.svg"],!1,0,1));return o.frequency=1e3,setTimeout(function(){return o.tick()},o.frequency),o}return _inherits(e,IOObject),_createClass(e,[{key:"tick",value:function(){var t=this;this.activate(!this.isOn),setTimeout(function(){return t.tick()},this.frequency)}},{key:"activate",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,t),this.img=t?images["clockOn.svg"]:images["clock.svg"],render()}},{key:"getDisplayName",value:function(){return"Clock"}}]),e}();Clock.getXMLName=function(){return"clock"},Importer.types.push(Clock);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var n=e[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,r,n){return r&&t(e.prototype,r),n&&t(e,n),e}}(),_get=function t(e,r,n){null===e&&(e=Function.prototype);var o=Object.getOwnPropertyDescriptor(e,r);if(void 0===o){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,n)}if("value"in o)return o.value;var a=o.get;if(void 0!==a)return a.call(n)},ConstantHigh=function(t){function e(t,r,n){_classCallCheck(this,e);var o=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,n,DEFAULT_SIZE,DEFAULT_SIZE,images["constHigh.svg"],!1,0,1));return _get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",o).call(o,!0),o}return _inherits(e,IOObject),_createClass(e,[{key:"getDisplayName",value:function(){return"Constant High"}}]),e}();ConstantHigh.getXMLName=function(){return"consthigh"},Importer.types.push(ConstantHigh);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var a=n.get;if(void 0!==a)return a.call(r)},ConstantLow=function(t){function e(t,o,r){_classCallCheck(this,e);var n=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,o,r,DEFAULT_SIZE,DEFAULT_SIZE,images["constLow.svg"],!1,0,1));return _get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",n).call(n,!1),n}return _inherits(e,IOObject),_createClass(e,[{key:"getDisplayName",value:function(){return"Constant Low"}}]),e}();ConstantLow.getXMLName=function(){return"constlow"},Importer.types.push(ConstantLow);
-"use strict";function _classCallCheck(e,o){if(!(e instanceof o))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,o){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!o||"object"!=typeof o&&"function"!=typeof o?e:o}function _inherits(e,o){if("function"!=typeof o&&null!==o)throw new TypeError("Super expression must either be null or a function, not "+typeof o);e.prototype=Object.create(o&&o.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),o&&(Object.setPrototypeOf?Object.setPrototypeOf(e,o):e.__proto__=o)}var _createClass=function(){function e(e,o){for(var t=0;t<o.length;t++){var a=o[t];a.enumerable=a.enumerable||!1,a.configurable=!0,"value"in a&&(a.writable=!0),Object.defineProperty(e,a.key,a)}}return function(o,t,a){return t&&e(o.prototype,t),a&&e(o,a),o}}(),Keyboard=function(e){function o(e,t,a){_classCallCheck(this,o);var r=_possibleConstructorReturn(this,(o.__proto__||Object.getPrototypeOf(o)).call(this,e,t,a,3.5*DEFAULT_SIZE,3.5*DEFAULT_SIZE/images["keyboard.svg"].ratio,images["keyboard.svg"],!1,0,7));r.setOutputAmount(7);for(var d=0;d<7;d++){var y=r.outputs[d],n=-DEFAULT_SIZE/2*(d-3.5+.5);0===d&&(n-=1),6===d&&(n+=1),y.setOrigin(V(n,0)),y.setTarget(V(n,-IO_PORT_LENGTH-(r.transform.size.y-DEFAULT_SIZE)/2)),y.dir=V(0,-1)}return r}return _inherits(o,IOObject),_createClass(o,[{key:"onKeyDown",value:function(e){if(void 0!=(e=o.codeMap[e])){this.activate(!0,this.outputs.length-1);for(var t=this.outputs.length-2;t>=0;t--){var a=1<<t;a>e?this.outputs[t].activate(!1):(this.outputs[t].activate(!0),e-=a)}}}},{key:"onKeyUp",value:function(e){if(void 0!=(e=o.codeMap[e])){this.activate(!1,this.outputs.length-1);for(var t=this.outputs.length-2;t>=0;t--)this.outputs[t].activate(!1)}}},{key:"getDisplayName",value:function(){return"Keyboard"}}]),o}();Keyboard.getXMLName=function(){return"keyboard"},Importer.types.push(Keyboard),Keyboard.codeMap=[],Keyboard.codeCount=0,Keyboard.addKey=function(e){Keyboard.codeMap[e]=++Keyboard.codeCount};for(code=48;code<=57;code++)Keyboard.addKey(code);for(var code=65;code<=90;code++)Keyboard.addKey(code);Keyboard.addKey(32),Keyboard.addKey(13),Keyboard.addKey(8),Keyboard.addKey(9),Keyboard.addKey(16),Keyboard.addKey(17),Keyboard.addKey(18),Keyboard.addKey(91),Keyboard.addKey(20),Keyboard.addKey(27),Keyboard.addKey(192),Keyboard.addKey(189),Keyboard.addKey(187),Keyboard.addKey(219),Keyboard.addKey(221),Keyboard.addKey(220),Keyboard.addKey(186),Keyboard.addKey(222),Keyboard.addKey(188),Keyboard.addKey(190),Keyboard.addKey(191),Keyboard.addKey(37),Keyboard.addKey(38),Keyboard.addKey(39),Keyboard.addKey(40),Keyboard.addKey(112),Keyboard.addKey(112),console.log(Keyboard.codeCount);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var i=Object.getOwnPropertyDescriptor(e,r);if(void 0===i){var n=Object.getPrototypeOf(e);return null===n?void 0:t(n,r,o)}if("value"in i)return i.value;var c=i.get;if(void 0!==c)return c.call(o)},Switch=function(t){function e(t,r,o){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,o,60*images["switchUp.svg"].ratio,60,images["switchUp.svg"],!0,0,1,77*images["switchUp.svg"].ratio,77))}return _inherits(e,IOObject),_createClass(e,[{key:"activate",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,t),this.img=images[this.isOn?"switchDown.svg":"switchUp.svg"]}},{key:"click",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"click",this).call(this),this.activate(!this.isOn)}},{key:"getDisplayName",value:function(){return"Switch"}},{key:"writeTo",value:function(t){var r=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"writeTo",this).call(this,t);return createTextElement(r,"isOn",this.outputs[0].isOn),r}}]),e}();Switch.getXMLName=function(){return"switch"},Importer.types.push(Switch);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,r);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,o)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(o)},ANDGate=function(t){function e(t,r,o,n){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,o,n,images["and.svg"]))}return _inherits(e,Gate),_createClass(e,[{key:"setInputAmount",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t);for(var r=0;r<this.inputs.length;r++){var o=this.inputs[r];o.origin=V(-(this.transform.size.x-2)/2,o.origin.y)}}},{key:"activate",value:function(t){for(var r=!0,o=0;o<this.inputs.length;o++)r=r&&this.inputs[o].isOn;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,r)}},{key:"draw",value:function(){var t=this.context.getRenderer();this.localSpace();var r=-this.transform.size.y/2*(.5-this.inputs.length/2),o=-this.transform.size.y/2*(this.inputs.length/2-.5),n=(this.transform.size.x-2)/2,i=V(-n,r),s=V(-n,o);t.line(i.x,i.y,s.x,s.y,this.getBorderColor(),2),t.restore(),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this)}},{key:"getDisplayName",value:function(){return this.not?"NAND Gate":"AND Gate"}}]),e}();ANDGate.getXMLName=function(){return"andgate"},Importer.types.push(ANDGate);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var n=e[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,r,n){return r&&t(e.prototype,r),n&&t(e,n),e}}(),_get=function t(e,r,n){null===e&&(e=Function.prototype);var o=Object.getOwnPropertyDescriptor(e,r);if(void 0===o){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,n)}if("value"in o)return o.value;var a=o.get;if(void 0!==a)return a.call(n)},BUFGate=function(t){function e(t,r,n,o){_classCallCheck(this,e);var i=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,n,o,images["buffer.svg"]));return i.maxInputs=1,i.setInputAmount(1),i.activate(!1),i}return _inherits(e,Gate),_createClass(e,[{key:"activate",value:function(t){for(var r=!1,n=0;n<this.inputs.length;n++)r=this.inputs[n].isOn;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,r)}},{key:"getDisplayName",value:function(){return this.not?"NOT Gate":"Buffer Gate"}}]),e}();BUFGate.getXMLName=function(){return"bufgate"},Importer.types.push(BUFGate);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,r);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,o)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(o)},ORGate=function(t){function e(t,r,o,n){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,o,n,images["or.svg"]))}return _inherits(e,Gate),_createClass(e,[{key:"quadCurveXAt",value:function(t){var e=this.transform.size.x/2-2,r=1-t;return r*r*-e+2*t*r*-(this.transform.size.x/5-2)+t*t*-e}},{key:"setInputAmount",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t);for(var r=0;r<this.inputs.length;r++){var o=this.inputs[r],n=(o.origin.y/this.transform.size.y+.5)%1;n<0&&(n+=1);var i=this.quadCurveXAt(n);o.origin=V(i,o.origin.y)}}},{key:"activate",value:function(t){for(var r=!1,o=0;o<this.inputs.length;o++)r=r||this.inputs[o].isOn;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,r)}},{key:"draw",value:function(){var t=this.context.getRenderer();this.localSpace();for(var r=2*Math.floor(this.inputs.length/4)+1,o=0;o<r;o++){var n=(o-Math.floor(r/2))*this.transform.size.y,i=-this.transform.size.y/2,s=+this.transform.size.y/2,a=this.transform.size.x/2-2,u=this.transform.size.x/5-2,c=V(-a,i+n),l=V(-a,s+n),p=V(-u,n);t.quadCurve(c.x,c.y,l.x,l.y,p.x,p.y,this.getBorderColor(),2)}t.restore(),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this)}},{key:"getDisplayName",value:function(){return this.not?"NOR Gate":"OR Gate"}}]),e}();ORGate.getXMLName=function(){return"orgate"},Importer.types.push(ORGate);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,r);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,o)}if("value"in n)return n.value;var a=n.get;if(void 0!==a)return a.call(o)},XORGate=function(t){function e(t,r,o,n){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,o,n,images["or.svg"]))}return _inherits(e,Gate),_createClass(e,[{key:"quadCurveXAt",value:function(t){var e=this.transform.size.x/2-2,r=1-t;return r*r*-e+2*t*r*-(this.transform.size.x/5-2)+t*t*-e}},{key:"setInputAmount",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t);for(var r=0;r<this.inputs.length;r++){var o=this.inputs[r],n=(o.origin.y/this.transform.size.y+.5)%1;n<0&&(n+=1);var i=this.quadCurveXAt(n);o.origin=V(i,o.origin.y)}}},{key:"activate",value:function(t){for(var r=!1,o=0;o<this.inputs.length;o++)r=r!==this.inputs[o].isOn;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,r)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace();for(var r=2*Math.floor(this.inputs.length/4)+1,o=0;o<r;o++){var n=(o-Math.floor(r/2))*this.transform.size.y,i=-this.transform.size.y/2,a=+this.transform.size.y/2,s=this.transform.size.x/2-2,u=this.transform.size.x/5-2,c=V(-s,i+n),l=V(-s,a+n),p=V(-u,n);t.quadCurve(c.x,c.y,l.x,l.y,p.x,p.y,this.getBorderColor(),2),t.quadCurve(c.x-12,c.y,l.x-12,l.y,p.x-12,p.y,this.getBorderColor(),2)}t.restore()}},{key:"getDisplayName",value:function(){return this.not?"XNOR Gate":"XOR Gate"}},{key:"getXMLName",value:function(){return"xorgate"}}]),e}();XORGate.getXMLName=function(){return"xorgate"},Importer.types.push(XORGate);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(r)},Decoder=function(t){function e(t,o,r){_classCallCheck(this,e);var n=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,!1,o,r,void 0));return n.activate(0),n}return _inherits(e,Gate),_createClass(e,[{key:"onTransformChange",value:function(){this.transform.setSize(V(DEFAULT_SIZE,DEFAULT_SIZE)),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"onTransformChange",this).call(this),this.transform.setSize(V(DEFAULT_SIZE,DEFAULT_SIZE/2*(2<<this.inputs.length-1)))}},{key:"setInputAmount",value:function(t){t=clamp(t,0,8),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setOutputAmount",this).call(this,2<<t-1)}},{key:"getInputAmount",value:function(){return this.inputs.length}},{key:"activate",value:function(t){for(var e=0,o=0;o<this.inputs.length;o++)e|=(this.inputs[o].isOn?1:0)<<o;for(o=0;o<this.outputs.length;o++)this.outputs[o].activate(o===e,o)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace(),t.rect(0,0,this.transform.size.x,this.transform.size.y,this.getCol(),this.getBorderColor()),t.restore()}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getDisplayName",value:function(){return"Decoder"}}]),e}();Decoder.getXMLName=function(){return"decoder"},Importer.types.push(Decoder);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,r);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,o)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(o)},Demultiplexer=function(t){function e(t,r,o){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,!1,r,o,void 0))}return _inherits(e,Gate),_createClass(e,[{key:"setInputAmount",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t+1),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setOutputAmount",this).call(this,2<<t-1);var r=Math.max(DEFAULT_SIZE/2*(t-1),DEFAULT_SIZE),o=DEFAULT_SIZE/2*(2<<t-1);this.transform.setSize(V(r+10,o)),this.selectLines=[];for(n=0;n<t;n++){u=this.inputs[n];this.selectLines.push(u);s=-DEFAULT_SIZE/2*(n-t/2+.5);0===n&&(s-=1),n===t-1&&(s+=1),u.setOrigin(V(s,0)),u.setTarget(V(s,IO_PORT_LENGTH+o/2-DEFAULT_SIZE/2))}for(var n=0;n<this.outputs.length;n++){var i=this.outputs[n],s=-DEFAULT_SIZE/2*(n-this.outputs.length/2+.5);0===n&&(s-=1),n===this.outputs.length-1&&(s+=1),i.setOrigin(V(0,s)),i.setTarget(V(IO_PORT_LENGTH+(r/2-DEFAULT_SIZE/2),s))}var u;(u=this.inputs[this.inputs.length-1]).setOrigin(V(0,0)),u.setTarget(V(-IO_PORT_LENGTH-(r/2-DEFAULT_SIZE/2),0))}},{key:"getInputAmount",value:function(){return this.selectLines.length}},{key:"activate",value:function(t){for(var r=0,o=0;o<this.selectLines.length;o++)r|=(this.selectLines[o].isOn?1:0)<<o;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,this.inputs[this.inputs.length-1].isOn,r)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace();var r=V(this.transform.size.x/2,this.transform.size.y/2),o=V(this.transform.size.x/2,-this.transform.size.y/2),n=V(-this.transform.size.x/2,-this.transform.size.y/2+20),i=V(-this.transform.size.x/2,this.transform.size.y/2-20);t.shape([r,o,n,i],this.getCol(),this.getBorderColor(),2),t.restore()}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getDisplayName",value:function(){return"Demultiplexer"}}]),e}();Demultiplexer.getXMLName=function(){return"demux"},Importer.types.push(Demultiplexer);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var u=n.get;if(void 0!==u)return u.call(r)},Encoder=function(t){function e(t,o,r){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,!1,o,r,void 0))}return _inherits(e,Gate),_createClass(e,[{key:"onTransformChange",value:function(){this.transform.setSize(V(DEFAULT_SIZE,DEFAULT_SIZE)),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"onTransformChange",this).call(this),this.transform.setSize(V(DEFAULT_SIZE,DEFAULT_SIZE/2*(2<<this.outputs.length-1)))}},{key:"setInputAmount",value:function(t){t=clamp(t,0,8),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,2<<t-1),_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setOutputAmount",this).call(this,t)}},{key:"getInputAmount",value:function(){return this.outputs.length}},{key:"activate",value:function(t){for(var e=-1,o=0;o<this.inputs.length;o++)if(this.inputs[o].isOn){if(-1!==e)return;e=o}if(-1!==e)for(o=this.outputs.length-1;o>=0;o--){var r=1<<o;r>e?this.outputs[o].activate(!1):(this.outputs[o].activate(!0),e-=r)}}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace(),t.rect(0,0,this.transform.size.x,this.transform.size.y,this.getCol(),this.getBorderColor()),t.restore()}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getDisplayName",value:function(){return"Encoder"}}]),e}();Encoder.getXMLName=function(){return"encoder"},Importer.types.push(Encoder);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var i=0;i<e.length;i++){var o=e[i];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,i,o){return i&&t(e.prototype,i),o&&t(e,o),e}}(),_get=function t(e,i,o){null===e&&(e=Function.prototype);var r=Object.getOwnPropertyDescriptor(e,i);if(void 0===r){var s=Object.getPrototypeOf(e);return null===s?void 0:t(s,i,o)}if("value"in r)return r.value;var n=r.get;if(void 0!==n)return n.call(o)},IC=function(t){function e(t,i,o,r){_classCallCheck(this,e);var s=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,o,r,50,50,void 0,!1,999,999));return s.data=i,s.setup(),s}return _inherits(e,IOObject),_createClass(e,[{key:"setup",value:function(){if(void 0!=this.data){this.setInputAmount(this.data.getInputAmount()),this.setOutputAmount(this.data.getOutputAmount());var t=this.data.copy();this.inputObjects=t.inputs,this.outputObjects=t.outputs,this.components=t.components;for(var e=0;e<this.outputObjects.length;e++){var i=this.outputs[e];this.outputObjects[e].activate=function(t){i.activate(t)}}this.noChange=!0,this.update()}}},{key:"update",value:function(){if(void 0!=this.data){this.transform.setWidth(this.data.getWidth()),this.transform.setHeight(this.data.getHeight());for(t=0;t<this.inputs.length;t++)this.inputs[t].setOrigin(this.data.iports[t].origin),this.inputs[t].setTarget(this.data.iports[t].target);for(var t=0;t<this.outputs.length;t++)this.outputs[t].setOrigin(this.data.oports[t].origin),this.outputs[t].setTarget(this.data.oports[t].target);this.activate()}}},{key:"activate",value:function(){for(var t=0;t<this.inputs.length;t++)this.inputObjects[t].activate(this.inputs[t].isOn)}},{key:"draw",value:function(){var t=this.context.getRenderer();_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this),this.localSpace();var i=this.transform.size;t.rect(0,0,i.x,i.y,this.getCol(),"#000000",1);for(u=0;u<this.inputs.length;u++){var o=this.inputObjects[u].getName(),r=this.transform.toLocalSpace(this.inputs[u].getPos()),s="center",n=8,a=t.getTextWidth(o)/2;(c=(c=getNearestPointOnRect(V(-i.x/2,-i.y/2),V(i.x/2,i.y/2),r)).sub(r).normalize().scale(n).add(c)).x=clamp(c.x,-i.x/2+n+a,i.x/2-n-a),c.y=clamp(c.y,-i.y/2+14,i.y/2-14),t.text(o,c.x,c.y,0,0,s)}for(var u=0;u<this.outputs.length;u++){var o=this.outputObjects[u].getName(),r=this.transform.toLocalSpace(this.outputs[u].getPos()),s="center",n=8,a=t.getTextWidth(o)/2,c=getNearestPointOnRect(V(-i.x/2,-i.y/2),V(i.x/2,i.y/2),r);(c=c.sub(r).normalize().scale(n).add(c)).x=clamp(c.x,-i.x/2+n+a,i.x/2-n-a),c.y=clamp(c.y,-i.y/2+14,i.y/2-14),t.text(o,c.x,c.y,0,0,s)}t.restore()}},{key:"getDisplayName",value:function(){return"IC"}},{key:"copy",value:function(){return new e(this.context,this.data,this.transform.pos.x,this.transform.pos.y)}},{key:"writeTo",value:function(t){var i=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"writeTo",this).call(this,t);return createTextElement(i,"icuid",this.data.getUID()),i}},{key:"load",value:function(t,i){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"load",this).call(this,t);var o=getIntValue(getChildNode(t,"icuid")),r=findIC(o,i);return this.data=r,this.setup(),this}}]),e}();IC.getXMLName=function(){return"ic"},Importer.types.push(IC);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}var _createClass=function(){function t(t,e){for(var s=0;s<e.length;s++){var i=e[s];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(t,i.key,i)}}return function(e,s,i){return s&&t(e.prototype,s),i&&t(e,i),e}}(),ICData=function(){function t(e,s,i){_classCallCheck(this,t),this.transform=new Transform(V(0,0),V(0,0),0),this.inputs=e,this.outputs=s,this.components=i,this.wires=getAllWires(this.getObjects()),this.uidmanager=new UIDManager(this);for(var a=this.getObjects(),r=0;r<a.length;r++)this.uidmanager.giveUIDTo(a[r]);for(r=0;r<this.wires.length;r++)this.uidmanager.giveUIDTo(this.wires[r]);for(var n=0,r=0;r<this.inputs.length;r++)n=Math.max(this.inputs[r].getName().length,n);for(r=0;r<this.outputs.length;r++)n=Math.max(this.outputs[r].getName().length,n);var o=DEFAULT_SIZE+20*n,u=DEFAULT_SIZE/2*Math.max(this.inputs.length,this.outputs.length);this.transform.setSize(V(o,u)),this.iports=[],this.oports=[];for(r=0;r<this.inputs.length;r++){this.iports[r]=new IPort;h=-DEFAULT_SIZE/2*(r-this.inputs.length/2+.5);0===r&&(h-=1),r===this.inputs.length-1&&(h+=1),this.iports[r].setOrigin(V(0,h)),this.iports[r].setTarget(V(-IO_PORT_LENGTH-(o/2-DEFAULT_SIZE/2),h))}for(r=0;r<this.outputs.length;r++){this.oports[r]=new OPort;var h=-DEFAULT_SIZE/2*(r-this.outputs.length/2+.5);0===r&&(h-=1),r===this.outputs.length-1&&(h+=1),this.oports[r].setOrigin(V(0,h)),this.oports[r].setTarget(V(IO_PORT_LENGTH+(o/2-DEFAULT_SIZE/2),h))}this.recalculatePorts()}return _createClass(t,[{key:"recalculatePorts",value:function(){for(var t=this.transform.size,e=this.iports,s=0;s<e.length;s++){var i=e[s],a=this.transform.getMatrix().mul(i.target),r=this.transform.getMatrix().mul(i.origin),n=a.add(a.sub(r).normalize().scale(1e4)),o=(c=getNearestPointOnRect(V(-t.x/2,-t.y/2),V(t.x/2,t.y/2),n)).sub(n).normalize().scale(t.scale(.5)).add(c),u=c.sub(n).normalize().scale(t.scale(.5).sub(V(IO_PORT_LENGTH+t.x/2-25,IO_PORT_LENGTH+t.y/2-25))).add(c);i.setOrigin(o),i.setTarget(u)}for(var h=this.oports,s=0;s<h.length;s++){var l=h[s],a=this.transform.getMatrix().mul(l.target),r=this.transform.getMatrix().mul(l.origin),n=a.add(a.sub(r).normalize().scale(1e4)),c=getNearestPointOnRect(V(-t.x/2,-t.y/2),V(t.x/2,t.y/2),n),o=c.sub(n).normalize().scale(t.scale(.5)).add(c),u=c.sub(n).normalize().scale(t.scale(.5).sub(V(IO_PORT_LENGTH+t.x/2-25,IO_PORT_LENGTH+t.y/2-25))).add(c);l.setOrigin(o),l.setTarget(u)}}},{key:"getInputAmount",value:function(){return this.inputs.length}},{key:"getOutputAmount",value:function(){return this.outputs.length}},{key:"copy",value:function(){return separateGroup(copyGroup(this.getObjects()).objects)}},{key:"getUID",value:function(){return this.icuid}},{key:"getObjects",value:function(){return this.inputs.concat(this.components,this.outputs)}},{key:"getWires",value:function(){return this.wires}},{key:"getWidth",value:function(){return this.transform.getSize().x}},{key:"getHeight",value:function(){return this.transform.getSize().y}}]),t}();ICData.create=function(t){t=copyGroup(t).objects;for(var e=separateGroup(t),s=0;s<e.inputs.length;s++){var i=e.inputs[s];i instanceof Clock&&i.getName()===i.getDisplayName()&&i.setName(">")}return new ICData(e.inputs,e.outputs,e.components)},ICData.add=function(t){t.icuid=ICData.ICs.length,ICData.ICs.push(t)},ICData.redistributeUIDs=function(){for(var t=[],e=0;e<ICData.ICs.length;e++)t[e]=ICData.ICs[e];ICData.ICs=[];for(e=0;e<t.length;e++)t[e].icuid=e,ICData.ICs[e]=t[e]},ICData.ICs=[];
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var o=e[r];o.enumerable=o.enumerable||!1,o.configurable=!0,"value"in o&&(o.writable=!0),Object.defineProperty(t,o.key,o)}}return function(e,r,o){return r&&t(e.prototype,r),o&&t(e,o),e}}(),_get=function t(e,r,o){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,r);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,r,o)}if("value"in n)return n.value;var a=n.get;if(void 0!==a)return a.call(o)},Label=function(t){function e(t,r,o){_classCallCheck(this,e);var n=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,r,o,0,0,void 0,!0,0,0,60,30));return n.setName("LABEL"),n.setInputAmount(0),n.setOutputAmount(0),n}return _inherits(e,IOObject),_createClass(e,[{key:"activate",value:function(t){}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace();t.getTextWidth(this.text);var r=V(0,0);t.text(this.name,r.x,r.y,0,0,"center"),t.restore()}},{key:"setName",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setName",this).call(this,t);var r=this.context.getRenderer().getTextWidth(this.name)+20;this.selectionBoxTransform.setSize(V(r,this.selectionBoxTransform.size.y)),this.onTransformChange(),render()}},{key:"getDisplayName",value:function(){return this.name}}]),e}();Label.getXMLName=function(){return"label"},Importer.types.push(Label);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var r=0;r<e.length;r++){var n=e[r];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(t,n.key,n)}}return function(e,r,n){return r&&t(e.prototype,r),n&&t(e,n),e}}(),_get=function t(e,r,n){null===e&&(e=Function.prototype);var i=Object.getOwnPropertyDescriptor(e,r);if(void 0===i){var o=Object.getPrototypeOf(e);return null===o?void 0:t(o,r,n)}if("value"in i)return i.value;var s=i.get;if(void 0!==s)return s.call(n)},Multiplexer=function(t){function e(t,r,n){return _classCallCheck(this,e),_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,!1,r,n,void 0))}return _inherits(e,Gate),_createClass(e,[{key:"setInputAmount",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"setInputAmount",this).call(this,t+(2<<t-1));var r=Math.max(DEFAULT_SIZE/2*(t-1),DEFAULT_SIZE),n=DEFAULT_SIZE/2*(2<<t-1);this.transform.setSize(V(r+10,n)),this.selectLines=[];for(s=0;s<t;s++){o=this.inputs[s];this.selectLines.push(o);u=-DEFAULT_SIZE/2*(s-t/2+.5);0===s&&(u-=1),s===t-1&&(u+=1),o.setOrigin(V(u,0)),o.setTarget(V(u,IO_PORT_LENGTH+n/2-DEFAULT_SIZE/2))}for(var i=t;i<this.inputs.length;i++){var o=this.inputs[i],s=i-t,u=-DEFAULT_SIZE/2*(s-(this.inputs.length-t)/2+.5);0===s&&(u-=1),s===this.inputs.length-t-1&&(u+=1),o.setOrigin(V(0,u)),o.setTarget(V(-IO_PORT_LENGTH-(r/2-DEFAULT_SIZE/2),u))}var a=this.outputs[0];a.target=V(IO_PORT_LENGTH+(r/2-DEFAULT_SIZE/2),a.target.y)}},{key:"getInputAmount",value:function(){return this.selectLines.length}},{key:"activate",value:function(t){for(var r=0,n=0;n<this.selectLines.length;n++)r|=(this.selectLines[n].isOn?1:0)<<n;_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,this.inputs[r+this.selectLines.length].isOn)}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace();var r=V(-this.transform.size.x/2,this.transform.size.y/2),n=V(-this.transform.size.x/2,-this.transform.size.y/2),i=V(this.transform.size.x/2,-this.transform.size.y/2+20),o=V(this.transform.size.x/2,this.transform.size.y/2-20);t.shape([r,n,i,o],this.getCol(),this.getBorderColor(),2),t.restore()}},{key:"getMinInputFieldCount",value:function(){return 1}},{key:"getDisplayName",value:function(){return"Multiplexer"}},{key:"getXMLName",value:function(){return"mux"}}]),e}();Multiplexer.getXMLName=function(){return"mux"},Importer.types.push(Multiplexer);
-"use strict";function _classCallCheck(t,e){if(!(t instanceof e))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(t,e){if(!t)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!e||"object"!=typeof e&&"function"!=typeof e?t:e}function _inherits(t,e){if("function"!=typeof e&&null!==e)throw new TypeError("Super expression must either be null or a function, not "+typeof e);t.prototype=Object.create(e&&e.prototype,{constructor:{value:t,enumerable:!1,writable:!0,configurable:!0}}),e&&(Object.setPrototypeOf?Object.setPrototypeOf(t,e):t.__proto__=e)}var _createClass=function(){function t(t,e){for(var o=0;o<e.length;o++){var r=e[o];r.enumerable=r.enumerable||!1,r.configurable=!0,"value"in r&&(r.writable=!0),Object.defineProperty(t,r.key,r)}}return function(e,o,r){return o&&t(e.prototype,o),r&&t(e,r),e}}(),_get=function t(e,o,r){null===e&&(e=Function.prototype);var n=Object.getOwnPropertyDescriptor(e,o);if(void 0===n){var i=Object.getPrototypeOf(e);return null===i?void 0:t(i,o,r)}if("value"in n)return n.value;var s=n.get;if(void 0!==s)return s.call(r)},LED=function(t){function e(t,o,r,n){_classCallCheck(this,e);var i=_possibleConstructorReturn(this,(e.__proto__||Object.getPrototypeOf(e)).call(this,t,o,r,DEFAULT_SIZE,DEFAULT_SIZE,images["led.svg"],!1,1,0));return i.transform.setPos(V(i.transform.pos.x,i.transform.pos.y-2*i.transform.size.y)),i.color=void 0==n?"#ffffff":n,i.connectorWidth=5,i.setInputAmount(1),i.inputs[0].setOrigin(V(0,0)),i.inputs[0].setTarget(V(0,2*i.transform.size.y)),i.inputs[0].lineColor="#ffffff",i.inputs[0].dir=V(0,1),i}return _inherits(e,IOObject),_createClass(e,[{key:"updateCullTransform",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"updateCullTransform",this).call(this),this.isOn&&(this.cullTransform.setSize(V(3*this.transform.size.x,4*this.transform.size.y)),this.cullTransform.setPos(this.transform.pos.add(V(0,(this.inputs[0].target.y-3*this.transform.size.y/2)/2))))}},{key:"activate",value:function(t,o){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"activate",this).call(this,t,o),this.updateCullTransform()}},{key:"getImageTint",value:function(){return this.color}},{key:"draw",value:function(){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"draw",this).call(this);var t=this.context.getRenderer();this.localSpace(),this.isOn&&t.image(images["ledLight.svg"],0,0,3*this.transform.size.x,3*this.transform.size.y,this.color),t.restore()}},{key:"getDisplayName",value:function(){return"LED"}},{key:"copy",value:function(){var t=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"copy",this).call(this);return t.color=this.color,t.connectorWidth=this.connectorWidth,t}},{key:"writeTo",value:function(t){var o=_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"writeTo",this).call(this,t);return createTextElement(o,"color",this.color),o}},{key:"load",value:function(t){_get(e.prototype.__proto__||Object.getPrototypeOf(e.prototype),"load",this).call(this,t);var o=getStringValue(getChildNode(t,"color"));return this.color=o,this}}]),e}();LED.getXMLName=function(){return"led"},Importer.types.push(LED);
-"use strict";function _classCallCheck(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}function _possibleConstructorReturn(e,t){if(!e)throw new ReferenceError("this hasn't been initialised - super() hasn't been called");return!t||"object"!=typeof t&&"function"!=typeof t?e:t}function _inherits(e,t){if("function"!=typeof t&&null!==t)throw new TypeError("Super expression must either be null or a function, not "+typeof t);e.prototype=Object.create(t&&t.prototype,{constructor:{value:e,enumerable:!1,writable:!0,configurable:!0}}),t&&(Object.setPrototypeOf?Object.setPrototypeOf(e,t):e.__proto__=t)}var _createClass=function(){function e(e,t){for(var s=0;s<t.length;s++){var n=t[s];n.enumerable=n.enumerable||!1,n.configurable=!0,"value"in n&&(n.writable=!0),Object.defineProperty(e,n.key,n)}}return function(t,s,n){return s&&e(t.prototype,s),n&&e(t,n),t}}(),_get=function e(t,s,n){null===t&&(t=Function.prototype);var r=Object.getOwnPropertyDescriptor(t,s);if(void 0===r){var i=Object.getPrototypeOf(t);return null===i?void 0:e(i,s,n)}if("value"in r)return r.value;var o=r.get;if(void 0!==o)return o.call(n)},SevenSegmentDisplay=function(e){function t(e,s,n){_classCallCheck(this,t);var r=_possibleConstructorReturn(this,(t.__proto__||Object.getPrototypeOf(t)).call(this,e,s,n,70,100,void 0,!1,7,0));r.setInputAmount(7),r.noChange=!0,r.segmentWidth=45,r.segmentHeight=10;for(var i=0;i<7;i++){var o=r.inputs[i],a=-15*(o.getIndex()-o.getArray().length/2+.5);o.setOrigin(V(o.origin.x,a)),o.setTarget(V(o.target.x,a))}r.transform.size.x,r.transform.size.y;var g=r.segmentWidth,m=r.segmentHeight;return r.segmentPositions=[V(0,-g+m),V(g/2-m/2,(-g+m)/2),V(g/2-m/2,(+g-m)/2),V(0,g-m),V(-g/2+m/2,(+g-m)/2),V(-g/2+m/2,(-g+m)/2),V(0,0)],r.segmentSizes=[V(g,m),V(m,g),V(m,g),V(g,m),V(m,g),V(m,g),V(g,m)],r.segmentImages=[images["segment1.svg"],images["segment2.svg"],images["segment2.svg"],images["segment1.svg"],images["segment2.svg"],images["segment2.svg"],images["segment1.svg"]],r.segmentOnImages=[images["segment3.svg"],images["segment4.svg"],images["segment4.svg"],images["segment3.svg"],images["segment4.svg"],images["segment4.svg"],images["segment3.svg"]],r}return _inherits(t,IOObject),_createClass(t,[{key:"draw",value:function(){_get(t.prototype.__proto__||Object.getPrototypeOf(t.prototype),"draw",this).call(this),this.localSpace();var e=this.context.getRenderer();e.rect(0,0,this.transform.size.x,this.transform.size.y,this.getCol(),this.getBorderColor());for(var s=0;s<7;s++){var n=this.segmentPositions[s],r=this.segmentSizes[s],i=this.inputs[s].isOn?this.segmentOnImages[s]:this.segmentImages[s];e.image(i,n.x,n.y,r.x,r.y,void 0)}e.restore()}},{key:"getDisplayName",value:function(){return"7 Segment Display"}},{key:"getXMLName",value:function(){return"sevensegmentdisplay"}}]),t}();SevenSegmentDisplay.getXMLName=function(){return"sevensegmentdisplay"},Importer.types.push(SevenSegmentDisplay);
+"use strict";
+
+var Exporter = function () {
+    var projectNameInput = document.getElementById("project-name");
+
+    return {
+        ROOT: undefined,
+        saveFile: function saveFile() {
+            var data = this.write(getCurrentContext());
+            var projectName = projectNameInput.value;
+            if (projectName === "Untitled Circuit*") projectName = "Untitled Circuit";
+            var filename = projectName + ".circuit";
+
+            var file = new Blob([data], { type: "text/plain" });
+            if (window.navigator.msSaveOrOpenBlob) {
+                // IE10+
+                window.navigator.msSaveOrOpenBlob(file, filename);
+                saved = true;
+            } else {
+                // Others
+                var a = document.createElement("a");
+                var url = URL.createObjectURL(file);
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    saved = true;
+                }, 0);
+            }
+        },
+        write: function write(context) {
+            var root = new window.DOMParser().parseFromString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><project></project>", "text/xml");
+            this.ROOT = root;
+
+            var objects = context.getObjects();
+            var wires = context.getWires();
+
+            var projectNode = getChildNode(root, "project");
+
+            var icNode = createChildNode(projectNode, "ics");
+
+            this.writeICs(icNode);
+            this.writeGroup(projectNode, objects, wires);
+
+            return root.xml ? root.xml : new XMLSerializer().serializeToString(root);
+        },
+        writeGroup: function writeGroup(node, objects, wires) {
+            var objectsNode = createChildNode(node, "objects");
+            var wiresNode = createChildNode(node, "wires");
+
+            for (var i = 0; i < objects.length; i++) {
+                objects[i].writeTo(objectsNode);
+            }for (var i = 0; i < wires.length; i++) {
+                wires[i].writeTo(wiresNode);
+            }
+        },
+        writeICs: function writeICs(node) {
+            for (var i = 0; i < ICData.ICs.length; i++) {
+                var ic = ICData.ICs[i];
+                var ICNode = createChildNode(node, "ic");
+                createTextElement(ICNode, "icuid", ic.icuid);
+                createTextElement(ICNode, "width", ic.transform.size.x);
+                createTextElement(ICNode, "height", ic.transform.size.y);
+
+                var iportNode = createChildNode(ICNode, "iports");
+                for (var j = 0; j < ic.iports.length; j++) {
+                    ic.iports[j].writeTo(iportNode);
+                }var oportNode = createChildNode(ICNode, "oports");
+                for (var j = 0; j < ic.oports.length; j++) {
+                    ic.oports[j].writeTo(oportNode);
+                }var componentsNode = createChildNode(ICNode, "components");
+                var objects = ic.inputs.concat(ic.components, ic.outputs);
+                var wires = getAllWires(objects);
+                this.writeGroup(componentsNode, objects, wires);
+            }
+        }
+    };
+}();
+
+// UTILS
+function createChildNode(parent, tag) {
+    var child = Exporter.ROOT.createElement(tag);
+    parent.appendChild(child);
+    return child;
+}
+
+function createTextElement(node, tag, text) {
+    var a = Exporter.ROOT.createElement(tag);
+    var b = Exporter.ROOT.createTextNode(text);
+    a.appendChild(b);
+    node.appendChild(a);
+}
+"use strict";
+
+var Importer = function () {
+    var fileInput = document.getElementById('file-input');
+
+    return {
+        types: [],
+        openFile: function openFile() {
+            // TODO: Custom popup w/ option to save
+            var open = confirm("Are you sure you want to overwrite your current scene?");
+
+            if (open) {
+                reset();
+
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                    Importer.load(reader.result, getCurrentContext());
+                    render();
+                };
+
+                reader.readAsText(fileInput.files[0]);
+            }
+        },
+        load: function load(text, context) {
+            //
+            // Why?!?!
+            // 
+            // // Remove all whitespace from XML file except for header
+            // var header = text.substring(0, text.indexOf(">")+1);
+            // text = header + text.substring(text.indexOf(">")+1).replace(/\s/g,'');
+
+            var root = new window.DOMParser().parseFromString(text, "text/xml");
+            if (root.documentElement.nodeName == "parsererror") return;
+
+            var project = getChildNode(root, "project");
+            var icsNode = getChildNode(project, "ics");
+
+            var ics = this.loadICs(icsNode, context);
+
+            var group = this.loadGroup(project, context, ics);
+            context.addObjects(group.objects);
+            context.addWires(group.wires);
+
+            for (var i = 0; i < ics.length; i++) {
+                ICData.add(ics[i]);
+            }context.redistributeUIDs();
+            ICData.redistributeUIDs();
+
+            return group;
+        },
+        loadGroup: function loadGroup(node, context, ics) {
+            var objectsNode = getChildNode(node, "objects");
+            var wiresNode = getChildNode(node, "wires");
+
+            var objects = [];
+            var wires = [];
+
+            for (var i = 0; i < this.types.length; i++) {
+                var type = this.types[i];
+                var nodes = getChildrenByTagName(objectsNode, type.getXMLName());
+                for (var j = 0; j < nodes.length; j++) {
+                    objects.push(new type(context).load(nodes[j], ics));
+                }
+            }
+
+            var wiresArr = getChildrenByTagName(wiresNode, "wire");
+            for (var i = 0; i < wiresArr.length; i++) {
+                wires.push(new Wire(context).load(wiresArr[i]));
+            }for (var i = 0; i < wires.length; i++) {
+                wires[i].loadConnections(wiresArr[i], objects);
+            }return { objects: objects, wires: wires };
+        },
+        loadICs: function loadICs(node, context) {
+            var ics = [];
+            var icNodes = getChildrenByTagName(node, "ic");
+            for (var i = 0; i < icNodes.length; i++) {
+                var icNode = icNodes[i];
+                var icuid = getIntValue(getChildNode(icNode, "icuid"));
+                var width = getIntValue(getChildNode(icNode, "width"));
+                var height = getIntValue(getChildNode(icNode, "height"));
+
+                var componentsNode = getChildNode(icNode, "components");
+                var group = this.loadGroup(componentsNode, context, ics);
+                var data = ICData.create(group.objects);
+
+                data.icuid = icuid;
+                data.transform.setSize(V(width, height));
+
+                var iports = getChildrenByTagName(getChildNode(icNode, "iports"), "iport");
+                for (var j = 0; j < iports.length; j++) {
+                    data.iports[j] = new IPort().load(iports[j]);
+                }var oports = getChildrenByTagName(getChildNode(icNode, "oports"), "oport");
+                for (var j = 0; j < oports.length; j++) {
+                    data.oports[j] = new OPort().load(oports[j]);
+                }ics.push(data);
+            }
+            return ics;
+        }
+    };
+}();
+
+// UTILS
+function getChildNode(parent, name) {
+    for (var i = 0; i < parent.childNodes.length; i++) {
+        if (parent.childNodes[i].nodeName === name) return parent.childNodes[i];
+    }
+    return undefined;
+}
+function getChildrenByTagName(parent, name) {
+    var children = [];
+    for (var i = 0; i < parent.childNodes.length; i++) {
+        if (parent.childNodes[i].nodeName === name) children.push(parent.childNodes[i]);
+    }
+    return children;
+}
+function getBooleanValue(node, def) {
+    if (node == undefined) return def;
+    return node.childNodes[0].nodeValue === "true" ? true : false;
+}
+function getIntValue(node, def) {
+    if (node == undefined) return def;
+    return parseInt(node.childNodes[0].nodeValue);
+}
+function getFloatValue(node, def) {
+    if (node == undefined) return def;
+    return parseFloat(node.childNodes[0].nodeValue);
+}
+function getStringValue(node, def) {
+    if (node == undefined) return def;
+    return node.childNodes[0].nodeValue;
+}
+"use strict";
+
+var Input = function () {
+    var rawMousePos = new Vector(0, 0);
+    var mousePos = new Vector(0, 0);
+    var prevMousePos = new Vector(0, 0);
+    var worldMousePos = new Vector(0, 0);
+
+    var mouseDown = false;
+    var mouseDownPos = undefined;
+
+    var mouseListeners = [];
+
+    var z = 0;
+
+    var shiftKeyDown = false;
+    var modifierKeyDown = false;
+    var optionKeyDown = false;
+
+    var isDragging = false;
+    var startTapTime = undefined;
+
+    console.log(shiftKeyDown);
+
+    var onKeyDown = function onKeyDown(e) {
+        var code = e.keyCode;
+
+        console.log(shiftKeyDown);
+
+        switch (code) {
+            case SHIFT_KEY:
+                shiftKeyDown = true;
+                break;
+            case CONTROL_KEY:
+            case COMMAND_KEY:
+                modifierKeyDown = true;
+                break;
+            case OPTION_KEY:
+                optionKeyDown = true;
+                getCurrentContext().setCursor("pointer");
+                break;
+            case ENTER_KEY:
+                if (document.activeElement !== document.body) document.activeElement.blur();
+                break;
+        }
+
+        var objects = getCurrentContext().getObjects();
+        for (var i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof Keyboard) objects[i].onKeyDown(code);
+        }
+
+        getCurrentContext().getHistoryManager().onKeyDown(code);
+        if (CurrentTool.onKeyDown(code)) render();
+    };
+    var onKeyUp = function onKeyUp(e) {
+        var code = e.keyCode;
+
+        switch (code) {
+            case SHIFT_KEY:
+                shiftKeyDown = false;
+                break;
+            case CONTROL_KEY:
+            case COMMAND_KEY:
+                modifierKeyDown = false;
+                break;
+            case OPTION_KEY:
+                optionKeyDown = false;
+                getCurrentContext().setCursor("default");
+                break;
+        }
+
+        var objects = getCurrentContext().getObjects();
+        for (var i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof Keyboard) objects[i].onKeyUp(code);
+        }
+
+        if (CurrentTool.onKeyUp(code)) render();
+    };
+    var onDoubleClick = function onDoubleClick(e) {};
+    var onWheel = function onWheel(e) {
+        var camera = getCurrentContext().getCamera();
+        var delta = -e.deltaY / 120.0;
+
+        var factor = 0.95;
+        if (delta < 0) factor = 1 / factor;
+
+        var worldMousePos = camera.getWorldPos(mousePos);
+        camera.zoomBy(factor);
+        var newMousePos = camera.getScreenPos(worldMousePos);
+        var dx = (mousePos.x - newMousePos.x) * camera.zoom;
+        var dy = (mousePos.y - newMousePos.y) * camera.zoom;
+
+        camera.translate(-dx, -dy);
+
+        popup.onWheel();
+
+        render();
+    };
+    var onMouseDown = function onMouseDown(e) {
+        var canvas = getCurrentContext().getRenderer().canvas;
+        var rect = canvas.getBoundingClientRect();
+        isDragging = false;
+        startTapTime = Date.now();
+        mouseDown = true;
+        mouseDownPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+
+        if (e.button === LEFT_MOUSE_BUTTON) {
+            var shouldRender = false;
+            contextmenu.hide();
+            shouldRender = CurrentTool.onMouseDown(shouldRender);
+            for (var i = 0; i < mouseListeners.length; i++) {
+                var listener = mouseListeners[i];
+                if (!listener.disabled && listener.onMouseDown(shouldRender)) shouldRender = true;
+            }
+            if (shouldRender) render();
+        }
+    };
+    var onMouseMove = function onMouseMove(e) {
+        var canvas = getCurrentContext().getRenderer().canvas;
+        var camera = getCurrentContext().getCamera();
+        var rect = canvas.getBoundingClientRect();
+
+        prevMousePos.x = mousePos.x;
+        prevMousePos.y = mousePos.y;
+
+        rawMousePos = new Vector(e.clientX, e.clientY);
+        mousePos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+        worldMousePos = camera.getWorldPos(mousePos);
+
+        isDragging = mouseDown && Date.now() - startTapTime > 50;
+
+        var shouldRender = false;
+
+        if (optionKeyDown && isDragging) {
+            var pos = new Vector(mousePos.x, mousePos.y);
+            var dPos = mouseDownPos.sub(pos);
+            camera.translate(camera.zoom * dPos.x, camera.zoom * dPos.y);
+            mouseDownPos = mousePos;
+
+            popup.onMove();
+            shouldRender = true;
+        }
+
+        shouldRender = CurrentTool.onMouseMove(shouldRender) || shouldRender;
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onMouseMove(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+    var onMouseUp = function onMouseUp(e) {
+        mouseDown = false;
+
+        var shouldRender = false;
+        shouldRender = CurrentTool.onMouseUp(shouldRender);
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onMouseUp(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+    var onClick = function onClick(e) {
+        var shouldRender = false;
+        shouldRender = CurrentTool.onClick(shouldRender);
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onClick(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+
+    window.addEventListener('keydown', function (e) {
+        onKeyDown(e);
+    }, false);
+    window.addEventListener('keyup', function (e) {
+        onKeyUp(e);
+    }, false);
+
+    return {
+        registerContext: function registerContext(ctx) {
+            var canvas = ctx.getRenderer().canvas;
+            canvas.addEventListener('click', function (e) {
+                return onClick(e);
+            }, false);
+            canvas.addEventListener('dblclick', function (e) {
+                return onDoubleClick(e);
+            }, false);
+            // if (browser.name !== "Firefox")
+            canvas.addEventListener('wheel', function (e) {
+                return onWheel(e);
+            }, false);
+            // else
+            //     canvas.addEventListener('DOMMouseScroll', e => onWheel(e), false);
+            canvas.addEventListener('mousedown', function (e) {
+                return onMouseDown(e);
+            }, false);
+            canvas.addEventListener('mouseup', function (e) {
+                return onMouseUp(e);
+            }, false);
+            canvas.addEventListener('mousemove', function (e) {
+                return onMouseMove(e);
+            }, false);
+            canvas.addEventListener('mouseenter', function (e) {
+                if (PlaceItemController.drag) {
+                    onMouseMove(e);onClick(e);PlaceItemController.drag = false;
+                }
+            }, false);
+            canvas.addEventListener("mouseleave", function (e) {
+                if (mouseDown) {
+                    onMouseUp(e);onClick(e);
+                }
+            });
+
+            canvas.addEventListener("contextmenu", function (e) {
+                contextmenu.show(e);
+                e.preventDefault();
+            });
+        },
+        addMouseListener: function addMouseListener(l) {
+            mouseListeners.push(l);
+        },
+        getWorldMousePos: function getWorldMousePos() {
+            return V(worldMousePos);
+        },
+        getRawMousePos: function getRawMousePos() {
+            return V(rawMousePos);
+        },
+        getShiftKeyDown: function getShiftKeyDown() {
+            return shiftKeyDown;
+        },
+        getModifierKeyDown: function getModifierKeyDown() {
+            return modifierKeyDown;
+        },
+        getOptionKeyDown: function getOptionKeyDown() {
+            return optionKeyDown;
+        },
+        getIsDragging: function getIsDragging() {
+            return isDragging;
+        }
+    };
+}();
+"use strict";
+
+var ItemNavController = function () {
+    var tab = document.getElementById("open-items-tab");
+    var container = document.getElementById("items");
+
+    var open = function open() {
+        container.style.width = ITEMNAV_WIDTH + "px";
+        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
+        tab.style.borderColor = "rgba(153, 153, 153, 0.0)";
+        tab.style.backgroundColor = "rgba(200, 200, 200, 0.0)";
+        tab.style.fontSize = "2.5em";
+        tab.innerHTML = "&times;";
+    };
+    var close = function close() {
+        container.style.width = "0px";
+        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
+        tab.style.borderColor = "rgba(153, 153, 153, 0.7)";
+        tab.style.backgroundColor = "rgba(200, 200, 200, 0.7)";
+        tab.style.fontSize = "2em";
+        tab.innerHTML = "&#9776;";
+    };
+
+    return {
+        disabled: false,
+        isOpen: false,
+        toggle: function toggle() {
+            if (this.isOpen) {
+                this.isOpen = false;
+                close();
+            } else {
+                this.isOpen = true;
+                open();
+            }
+
+            // if (popup)
+            //     popup.onMove();
+        },
+        getTabOffset: function getTabOffset() {
+            return this.isOpen ? ITEMNAV_WIDTH - tab.offsetWidth : 0;
+        }
+    };
+}();
+// ItemNavController.toggle();
+"use strict";
+
+var PlaceItemController = function () {
+    return {
+        disabled: false,
+        drag: false,
+        place: function place(item, not) {
+            if (not) item.not = not;
+            var canvas = getCurrentContext().getRenderer().canvas;
+            var rect = canvas.getBoundingClientRect();
+            itemTool.activate(item, getCurrentContext());
+        },
+        onDragEnd: function onDragEnd(event) {
+            this.drag = true;
+            event.srcElement.parentElement.onclick();
+        }
+    };
+}();
+'use strict';
+
+var SelectionBox = function () {
+    var pos1 = undefined; // First corner
+    var pos2 = undefined; // Second corner
+
+    var getSelections = function getSelections() {
+        var objects = getCurrentContext().getObjects();
+        var selections = [];
+        if (pos1 != undefined) {
+            var trans = new Transform(V((pos1.x + pos2.x) / 2, (pos1.y + pos2.y) / 2), V(Math.abs(pos2.x - pos1.x), Math.abs(pos2.y - pos1.y)), 0, getCurrentContext().getCamera());
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                var t = obj.selectionBoxTransform != undefined ? obj.selectionBoxTransform : obj.transform;
+                if (transformContains(t, trans)) {
+                    selections.push(obj);
+                } else if (obj.inputs != undefined && obj.outputs != undefined) {
+                    // Check if an iport or oport is selected
+                    for (var j = 0; j < obj.inputs.length; j++) {
+                        var input = obj.inputs[j];
+                        if (rectContains(trans, input.getPos())) selections.push(input);
+                    }
+                    for (var j = 0; j < obj.outputs.length; j++) {
+                        var output = obj.outputs[j];
+                        if (rectContains(trans, output.getPos())) selections.push(output);
+                    }
+                }
+            }
+        }
+        return selections;
+    };
+
+    return {
+        disabled: false,
+        onMouseDown: function onMouseDown(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Make sure nothing but blank canvas was clicked
+            if (somethingHappened || !selectionTool.isActive || Input.getOptionKeyDown()) return;
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos) || obj.oPortContains(worldMousePos) !== -1 || obj.iPortContains(worldMousePos) !== -1) return;
+            }
+            for (var i = 0; i < wires.length; i++) {
+                var wire = wires[i];
+                if (wire.getNearestT(worldMousePos.x, worldMousePos.y) !== -1) return;
+            }
+
+            pos1 = V(worldMousePos);
+            popup.hide();
+        },
+        onMouseMove: function onMouseMove() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (pos1 != undefined) {
+                pos2 = V(worldMousePos);
+                popup.hide();
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {},
+        onClick: function onClick(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Stop selection box
+            if (pos1 != undefined) {
+                pos2 = V(worldMousePos);
+                var selections = getSelections();
+                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
+                selectionTool.select(selections, true);
+                pos1 = undefined;
+                pos2 = undefined;
+                return true;
+            }
+        },
+        draw: function draw(renderer) {
+            var camera = renderer.getCamera();
+            if (pos1 != undefined && pos2 != undefined) {
+                var p1 = camera.getScreenPos(pos1);
+                var p2 = camera.getScreenPos(pos2);
+                var w = p2.x - p1.x,
+                    h = p2.y - p1.y;
+                renderer.save();
+                renderer.context.globalAlpha = 0.4;
+                renderer.rect(p1.x + w / 2, p1.y + h / 2, w, h, '#ffffff', '#6666ff', 2 / camera.zoom);
+                renderer.restore();
+            }
+        }
+    };
+}();
+"use strict";
+
+var SideNavController = function () {
+    var tab = document.getElementById("open-sive-nav-button");
+    var tab2 = document.getElementById("open-items-tab");
+    var container = document.getElementById("sidenav");
+    var otherContent = document.getElementById("content");
+    var overlay = document.getElementById("overlay");
+    if (overlay) {
+        overlay.addEventListener("transitionend", function (event) {
+            if (!SideNavController.isOpen) overlay.style.visibility = "hidden";
+        }, false);
+    }
+
+    var open = function open() {
+        container.style.width = SIDENAV_WIDTH + "px";
+        otherContent.style.marginLeft = SIDENAV_WIDTH + "px";
+        overlay.style.visibility = "visible";
+        overlay.style.opacity = "1";
+        overlay.onclick = function () {
+            SideNavController.toggle();
+        };
+    };
+    var close = function close() {
+        container.style.width = "0px";
+        otherContent.style.marginLeft = "0px";
+        overlay.style.opacity = "0";
+        overlay.onclick = function () {};
+    };
+
+    return {
+        disabled: false,
+        isOpen: false,
+        toggle: function toggle() {
+            if (this.isOpen) {
+                this.isOpen = false;
+                close();
+            } else {
+                this.isOpen = true;
+                open();
+            }
+        },
+        getWidth: function getWidth() {
+            return this.isOpen ? SIDENAV_WIDTH : 0;
+        }
+    };
+}();
+// SideNavController.toggle();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Tool = function () {
+    function Tool() {
+        _classCallCheck(this, Tool);
+
+        this.isActive = false;
+    }
+
+    _createClass(Tool, [{
+        key: "activate",
+        value: function activate() {
+            if (CurrentTool) CurrentTool.deactivate();
+
+            CurrentTool = this;
+            this.isActive = true;
+            render();
+        }
+    }, {
+        key: "deactivate",
+        value: function deactivate() {
+            this.isActive = false;
+        }
+    }, {
+        key: "onKeyDown",
+        value: function onKeyDown(code) {}
+    }, {
+        key: "onKeyUp",
+        value: function onKeyUp(code) {}
+    }, {
+        key: "onMouseDown",
+        value: function onMouseDown() {}
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {}
+    }, {
+        key: "onMouseUp",
+        value: function onMouseUp() {}
+    }, {
+        key: "onClick",
+        value: function onClick() {}
+    }, {
+        key: "draw",
+        value: function draw() {}
+    }]);
+
+    return Tool;
+}();
+
+var CurrentTool;
+'use strict';
+
+var TransformController = function () {
+    var pressedObj = undefined;
+
+    var isDragging = false;
+    var isRotating = false;
+
+    var dragPos = V(0, 0);
+    var dragObjects = [];
+
+    var startAngle = 0;
+    var prevAngle = 0;
+    var realAngles = [];
+    var rotateObjects = [];
+
+    var startTransforms = []; // For undoing
+
+    var drag = function drag(pos, shift) {
+        var dPos = V(pos).sub(pressedObj.getPos()).sub(dragPos);
+        for (var i = 0; i < dragObjects.length; i++) {
+            var obj = dragObjects[i];
+            var newPos = obj.getPos().add(dPos);
+            if (shift) {
+                newPos = V(Math.floor(newPos.x / GRID_SIZE + 0.5) * GRID_SIZE, Math.floor(newPos.y / GRID_SIZE + 0.5) * GRID_SIZE);
+            }
+            obj.setPos(newPos);
+        }
+        selectionTool.recalculateMidpoint();
+    };
+    var rotate = function rotate(pos, shift) {
+        var origin = selectionTool.midpoint;
+        var dAngle = Math.atan2(pos.y - origin.y, pos.x - origin.x) - prevAngle;
+        for (var i = 0; i < rotateObjects.length; i++) {
+            var newAngle = realAngles[i] + dAngle;
+            realAngles[i] = newAngle;
+            if (shift) newAngle = Math.floor(newAngle / (Math.PI / 4)) * Math.PI / 4;
+            rotateObjects[i].setRotationAbout(newAngle, origin);
+        }
+        prevAngle = dAngle + prevAngle;
+    };
+
+    return {
+        disabled: false,
+        startDrag: function startDrag(obj, worldMousePos) {
+            if (!obj.selected) {
+                selectionTool.deselectAll(true);
+                selectionTool.select([obj], true);
+            }
+            dragObjects = selectionTool.selections;
+
+            startTransforms = [];
+            for (var i = 0; i < dragObjects.length; i++) {
+                if (!dragObjects[i].transform) return true;
+                startTransforms[i] = dragObjects[i].transform.copy();
+            }
+            isDragging = true;
+            dragPos = worldMousePos.copy().sub(obj.getPos());
+            pressedObj = obj;
+            popup.hide();
+            return true;
+        },
+        startRotation: function startRotation(objs, pos) {
+            rotateObjects = objs;
+            realAngles = [];
+            startTransforms = [];
+            for (var i = 0; i < rotateObjects.length; i++) {
+                if (!rotateObjects[i].transform) return true;
+                realAngles[i] = rotateObjects[i].getAngle();
+                startTransforms[i] = rotateObjects[i].transform.copy();
+            }
+            isRotating = true;
+            startAngle = Math.atan2(pos.y - selectionTool.midpoint.y, pos.x - selectionTool.midpoint.x);
+            prevAngle = startAngle;
+            popup.hide();
+            return true;
+        },
+
+        onMouseDown: function onMouseDown() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Check if rotation circle was pressed
+            if (!isRotating && selectionTool.selections.length > 0) {
+                var d = worldMousePos.sub(selectionTool.midpoint).len2();
+                if (d <= ROTATION_CIRCLE_R2 && d >= ROTATION_CIRCLE_R1) {
+                    return this.startRotation(selectionTool.selections, worldMousePos);
+                }
+            }
+
+            // Go through objects backwards since objects on top are in the back
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
+
+                // Check if object's selection box was pressed
+                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos)) {
+                    pressedObj = obj;
+                    return;
+                }
+            }
+        },
+        onMouseMove: function onMouseMove() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Begin dragging
+            if (!isDragging && pressedObj != undefined) {
+                return this.startDrag(pressedObj, worldMousePos);
+            }
+
+            // Actually move the object(s)
+            if (isDragging) {
+                drag(worldMousePos, Input.getShiftKeyDown());
+                return true;
+            }
+            if (isRotating) {
+                rotate(worldMousePos, Input.getShiftKeyDown());
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {
+            pressedObj = undefined;
+
+            // Stop dragging
+            if (isDragging) {
+                // Add transform action
+                getCurrentContext().addAction(createTransformAction(dragObjects, startTransforms));
+                isDragging = false;
+                return true;
+            }
+
+            // Stop rotating
+            if (isRotating) {
+                // Add transform action
+                getCurrentContext().addAction(createTransformAction(rotateObjects, startTransforms));
+                isRotating = false;
+                return true;
+            }
+        },
+        onClick: function onClick() {},
+        draw: function draw(renderer) {
+            // Draw rotation circle
+            var camera = renderer.getCamera();
+            var pos = camera.getScreenPos(selectionTool.midpoint);
+            var r = ROTATION_CIRCLE_RADIUS / camera.zoom;
+            if (isRotating) {
+                renderer.save();
+                renderer.context.fillStyle = '#fff';
+                renderer.context.strokeStyle = '#000';
+                renderer.context.lineWidth = 5;
+                renderer.context.globalAlpha = 0.4;
+                renderer.context.beginPath();
+                renderer.context.moveTo(pos.x, pos.y);
+                var da = (prevAngle - startAngle) % (2 * Math.PI);
+                if (da < 0) da += 2 * Math.PI;
+                renderer.context.arc(pos.x, pos.y, r, startAngle, prevAngle, da > Math.PI);
+                renderer.context.fill();
+                renderer.context.closePath();
+                renderer.restore();
+            }
+        }
+    };
+}();
+"use strict";
+
+var WireController = function () {
+    var pressedPort = undefined;
+
+    var pressedWire = undefined;
+    var wireSplitPoint = -1;
+
+    return {
+        disabled: false,
+        onMouseDown: function onMouseDown(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Make sure nothing else has happened
+            if (somethingHappened) return;
+
+            // Check if a IOPort was clicked to start creating new wire
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
+
+                // Check if port was clicked, then activate wire tool
+                var ii;
+                if ((ii = obj.oPortContains(worldMousePos)) !== -1) {
+                    pressedPort = obj.outputs[ii];
+                    return;
+                }
+                if ((ii = obj.iPortContains(worldMousePos)) !== -1) {
+                    pressedPort = obj.inputs[ii];
+                    return;
+                }
+            }
+
+            // Check if a wire was pressed
+            for (var i = 0; i < wires.length; i++) {
+                var wire = wires[i];
+                var t;
+                if ((t = wire.getNearestT(worldMousePos.x, worldMousePos.y)) !== -1) {
+                    pressedWire = wire;
+                    wireSplitPoint = t;
+                    return true;
+                }
+            }
+        },
+        onMouseMove: function onMouseMove(somethingHappened) {
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Make sure nothing else has happened
+            if (somethingHappened) return;
+
+            // Begin dragging new wire
+            if (pressedPort != undefined) {
+                wiringTool.activate(pressedPort, getCurrentContext());
+                pressedPort = undefined;
+                return true;
+            }
+
+            // Begin splitting wire
+            if (pressedWire != undefined) {
+                pressedWire.split(wireSplitPoint);
+                var action = new SplitWireAction(pressedWire);
+                getCurrentContext().addAction(action);
+                selectionTool.deselectAll(true);
+                selectionTool.select([pressedWire.connection], true);
+                TransformController.startDrag(pressedWire.connection, worldMousePos);
+                pressedWire = undefined;
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {},
+        onClick: function onClick(somethingHappened) {
+            // Make sure nothing else has happened
+            if (somethingHappened) {
+                pressedPort = undefined;
+                pressedWire = undefined;
+                return;
+            }
+
+            // Clicking also begins dragging
+            if (pressedPort != undefined) {
+                wiringTool.activate(pressedPort, getCurrentContext());
+                pressedPort = undefined;
+                return true;
+            }
+
+            // Select wire
+            if (pressedWire != undefined) {
+                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
+                selectionTool.select([pressedWire], true);
+                pressedWire = undefined;
+                return true;
+            }
+        }
+    };
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Camera = function () {
+    function Camera(designer, startPos, startZoom) {
+        _classCallCheck(this, Camera);
+
+        this.canvas = designer.renderer.canvas;
+        this.pos = startPos ? startPos : V(0, 0);
+        this.zoom = startZoom ? startZoom : 1;
+        this.center = V(0, 0);
+        this.transform = new Transform(V(0, 0), V(0, 0), 0, this);
+        this.dirty = true;
+    }
+
+    _createClass(Camera, [{
+        key: "resize",
+        value: function resize() {
+            this.center = V(this.canvas.width, this.canvas.height).scale(0.5);
+        }
+    }, {
+        key: "updateMatrix",
+        value: function updateMatrix() {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            this.mat = new Matrix2x3();
+            this.mat.translate(this.pos);
+            this.mat.scale(V(this.zoom, this.zoom));
+            this.inv = this.mat.inverse();
+
+            var p1 = this.getWorldPos(V(0, 0));
+            var p2 = this.getWorldPos(V(this.canvas.width, this.canvas.height));
+            this.transform.setPos(p2.add(p1).scale(0.5));
+            this.transform.setSize(p2.sub(p1));
+        }
+    }, {
+        key: "translate",
+        value: function translate(dx, dy) {
+            this.dirty = true;
+            this.pos.x += dx;
+            this.pos.y += dy;
+        }
+    }, {
+        key: "zoomBy",
+        value: function zoomBy(s) {
+            this.dirty = true;
+            this.zoom *= s;
+        }
+    }, {
+        key: "cull",
+        value: function cull(transform) {
+            // getCurrentContext().getRenderer().save();
+            // transform.transformCtx(getCurrentContext().getRenderer().context);
+            // getCurrentContext().getRenderer().rect(0, 0, transform.size.x, transform.size.y, '#ff00ff');
+            // getCurrentContext().getRenderer().restore();
+
+            return transformContains(transform, this.getTransform());
+        }
+    }, {
+        key: "getTransform",
+        value: function getTransform() {
+            this.updateMatrix();
+            return this.transform;
+        }
+    }, {
+        key: "getMatrix",
+        value: function getMatrix() {
+            this.updateMatrix();
+            return this.mat;
+        }
+    }, {
+        key: "getInverseMatrix",
+        value: function getInverseMatrix() {
+            this.updateMatrix();
+            return this.inv;
+        }
+    }, {
+        key: "getScreenPos",
+        value: function getScreenPos(v) {
+            return this.getInverseMatrix().mul(v).add(this.center);
+        }
+    }, {
+        key: "getWorldPos",
+        value: function getWorldPos(v) {
+            return this.getMatrix().mul(v.sub(this.center));
+        }
+    }]);
+
+    return Camera;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Clipboard = function () {
+    function Clipboard() {
+        var _this = this;
+
+        _classCallCheck(this, Clipboard);
+
+        document.addEventListener('copy', function (e) {
+            _this.copy(e);
+        }, false);
+        document.addEventListener('cut', function (e) {
+            _this.cut(e);
+        }, false);
+        document.addEventListener('paste', function (e) {
+            _this.paste(e);
+        }, false);
+    }
+
+    _createClass(Clipboard, [{
+        key: 'copy',
+        value: function copy(e) {
+            var selections = selectionTool.selections;
+            var things = getAllThingsBetween(selections);
+            var objects = [];
+            var wires = [];
+            for (var i = 0; i < things.length; i++) {
+                if (things[i] instanceof Wire) wires.push(things[i]);else objects.push(things[i]);
+            }
+            var ctx = { getObjects: function getObjects() {
+                    return objects;
+                }, getWires: function getWires() {
+                    return wires;
+                } };
+            var data = Exporter.write(ctx);
+            e.clipboardData.setData("text/plain", data);
+            e.preventDefault();
+        }
+    }, {
+        key: 'cut',
+        value: function cut(e) {
+            this.copy(e);
+            RemoveObjects(getCurrentContext(), selectionTool.selections, true);
+            e.preventDefault();
+        }
+    }, {
+        key: 'paste',
+        value: function paste(e) {
+            console.log("ASd");
+            var group = Importer.load(e.clipboardData.getData("text/plain"), getCurrentContext());
+            var objects = group.objects;
+            var wires = group.wires;
+
+            var action = new GroupAction();
+
+            for (var i = 0; i < objects.length; i++) {
+                objects[i].setPos(objects[i].getPos().add(V(5, 5)));
+                action.add(new PlaceAction(objects[i]));
+            }
+
+            getCurrentContext().addAction(action);
+
+            selectionTool.deselectAll();
+            selectionTool.select(objects);
+
+            render();
+            e.preventDefault();
+        }
+    }]);
+
+    return Clipboard;
+}();
+
+var clipboard = new Clipboard();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Context = function () {
+    function Context(designer) {
+        _classCallCheck(this, Context);
+
+        this.uidmanager = new UIDManager(this);
+        this.designer = designer;
+    }
+
+    _createClass(Context, [{
+        key: "reset",
+        value: function reset() {
+            this.designer.reset();
+        }
+    }, {
+        key: "render",
+        value: function render() {
+            this.designer.render();
+        }
+    }, {
+        key: "propogate",
+        value: function propogate(sender, receiver, signal) {
+            this.designer.propogate(sender, receiver, signal);
+        }
+    }, {
+        key: "add",
+        value: function add(o) {
+            if (o instanceof Wire) this.addWire(o);else this.addObject(o);
+        }
+    }, {
+        key: "addObject",
+        value: function addObject(o) {
+            this.designer.addObject(o);
+            this.uidmanager.giveUIDTo(o);
+        }
+    }, {
+        key: "addObjects",
+        value: function addObjects(arr) {
+            for (var i = 0; i < arr.length; i++) {
+                this.addObject(arr[i]);
+            }
+        }
+    }, {
+        key: "addWire",
+        value: function addWire(w) {
+            this.designer.addWire(w);
+            this.uidmanager.giveUIDTo(w);
+        }
+    }, {
+        key: "addWires",
+        value: function addWires(arr) {
+            for (var i = 0; i < arr.length; i++) {
+                this.addWire(arr[i]);
+            }
+        }
+    }, {
+        key: "addAction",
+        value: function addAction(action) {
+            this.designer.history.add(action);
+        }
+    }, {
+        key: "setCursor",
+        value: function setCursor(cursor) {
+            this.designer.renderer.setCursor(cursor);
+        }
+    }, {
+        key: "remove",
+        value: function remove(o) {
+            var index = this.getIndexOf(o);
+            if (index === -1) return;
+            if (o instanceof Wire) this.designer.getWires().splice(index, 1);else this.designer.getObjects().splice(index, 1);
+        }
+    }, {
+        key: "undo",
+        value: function undo() {
+            this.designer.history.undo();
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.designer.history.redo();
+        }
+    }, {
+        key: "redistributeUIDs",
+        value: function redistributeUIDs() {
+            this.uidmanager.redistribute();
+        }
+    }, {
+        key: "getDesigner",
+        value: function getDesigner() {
+            return this.designer;
+        }
+    }, {
+        key: "getRenderer",
+        value: function getRenderer() {
+            return this.designer.renderer;
+        }
+    }, {
+        key: "getCamera",
+        value: function getCamera() {
+            return this.designer.camera;
+        }
+    }, {
+        key: "getHistoryManager",
+        value: function getHistoryManager() {
+            return this.designer.history;
+        }
+    }, {
+        key: "getObjects",
+        value: function getObjects() {
+            // Copy to avoid confusing bugs when
+            // modifying the objects through add/remove
+            // and have it edit the returned array
+            return CopyArray(this.designer.objects);
+        }
+    }, {
+        key: "getWires",
+        value: function getWires() {
+            // Copy to avoid confusing bugs when
+            // modifying the objects through add/remove
+            // and have it edit the returned array
+            return CopyArray(this.designer.wires);
+        }
+    }, {
+        key: "getIndexOf",
+        value: function getIndexOf(o) {
+            if (o instanceof Wire) return this.designer.getIndexOfWire(o);else return this.designer.getIndexOfObject(o);
+        }
+    }, {
+        key: "findByUID",
+        value: function findByUID(uid) {
+            return findObjectByUID(uid) || findWireByUID(uid);
+        }
+    }, {
+        key: "findObjectByUID",
+        value: function findObjectByUID(uid) {
+            return UIDManager.find(this.getObjects(), uid);
+        }
+    }, {
+        key: "findWireByUID",
+        value: function findWireByUID(uid) {
+            return UIDManager.find(this.getWires(), uid);
+        }
+    }]);
+
+    return Context;
+}();
+
+function getCurrentContext() {
+    return currentContext;
+}
+"use strict";
+
+function copyGroup(objects) {
+    if (objects.length === 0) return [];
+
+    var copies = [];
+    for (var i = 0; i < objects.length; i++) {
+        if (objects[i] instanceof WirePort) objects.splice(i--, 1);else copies[i] = objects[i].copy();
+    }
+
+    // Copy and reconnect all wires
+    var wireCopies = [];
+    for (var i = 0; i < objects.length; i++) {
+        var obj = objects[i];
+        for (var j = 0; j < obj.outputs.length; j++) {
+            var wires = obj.outputs[j].connections;
+            for (var k = 0; k < wires.length; k++) {
+                // See if connection was also copied
+                var ww = wires[k];
+                while (ww instanceof Wire || ww instanceof WirePort) {
+                    ww = ww.connection;
+                }if (findIPort(objects, ww, copies) == undefined) break;
+
+                var wire = wires[k].copy();
+                copies[i].outputs[j].connect(wire);
+                var w = wires[k];
+                // Iterate through all wires connected to other wires
+                while (w.connection instanceof WirePort) {
+                    var port = new WirePort(obj.context);
+                    wire.connect(port);
+                    wireCopies.push(wire);
+                    w = w.connection.connection;
+                    wire = w.copy();
+                    port.connect(wire);
+                    copies.push(port);
+                }
+                var lastConnection = findIPort(objects, w.connection, copies);
+                wire.connect(lastConnection);
+                wireCopies.push(wire);
+            }
+        }
+    }
+    for (var i = 0; i < objects.length; i++) {
+        copies[i].isOn = objects[i].isOn;
+        if (objects[i].inputs.length === 0) copies[i].activate(objects[i].isOn);
+    }
+    for (var i = 0; i < wireCopies.length; i++) {
+        if (objects[i].inputs.length === 0) copies[i].activate(objects[i].isOn);
+    }
+
+    return { objects: copies, wires: wireCopies };
+}
+
+function findIPort(objects, target, copies) {
+    for (var i = 0; i < objects.length; i++) {
+        var iports = objects[i].inputs;
+        for (var j = 0; j < iports.length; j++) {
+            if (iports[j] === target) return copies[i].inputs[j];
+        }
+    }
+    return undefined;
+}
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var HistoryManager = function () {
+    function HistoryManager() {
+        _classCallCheck(this, HistoryManager);
+
+        this.undoStack = [];
+        this.redoStack = [];
+    }
+
+    _createClass(HistoryManager, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code, input) {
+            if (Input.getModifierKeyDown()) {
+                if (code === Y_KEY || code === Z_KEY && Input.getShiftKeyDown()) this.redo();else if (code === Z_KEY) this.undo();
+            }
+        }
+    }, {
+        key: "add",
+        value: function add(action) {
+            // Check for empty group action
+            if (action instanceof GroupAction && action.actions.length == 0) {
+                return;
+            }
+
+            this.redoStack = [];
+            this.undoStack.push(action);
+        }
+    }, {
+        key: "undo",
+        value: function undo() {
+            if (this.undoStack.length > 0) {
+                var action = this.undoStack.pop();
+                action.undo();
+                this.redoStack.push(action);
+                // Update popup's values
+                popup.update();
+                render();
+            }
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            if (this.redoStack.length > 0) {
+                var action = this.redoStack.pop();
+                action.redo();
+                this.undoStack.push(action);
+                // Update popup's values
+                popup.update();
+                render();
+            }
+        }
+    }]);
+
+    return HistoryManager;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/* Should be const instead of var
+   but Safari does not allow it */
+var PROPOGATION_TIME = 1;
+
+var updateRequests = 0;
+
+var Propogation = function () {
+    function Propogation(sender, receiver, signal, update) {
+        _classCallCheck(this, Propogation);
+
+        this.sender = sender;
+        this.receiver = receiver;
+        this.signal = signal;
+
+        if (updateRequests === 0) {
+            updateRequests++;
+            setTimeout(update, PROPOGATION_TIME);
+        }
+    }
+
+    _createClass(Propogation, [{
+        key: "send",
+        value: function send() {
+            this.receiver.activate(this.signal);
+        }
+    }]);
+
+    return Propogation;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var UIDManager = function () {
+    function UIDManager(context) {
+        _classCallCheck(this, UIDManager);
+
+        this.context = context;
+        this.counter = 0;
+    }
+
+    _createClass(UIDManager, [{
+        key: "giveUIDTo",
+        value: function giveUIDTo(obj) {
+            if (!obj.uid) obj.uid = this.counter++;
+        }
+    }, {
+        key: "redistribute",
+        value: function redistribute() {
+            var things = this.context.getObjects().concat(this.context.getWires());
+            this.counter = 0;
+            for (var i = 0; i < things.length; i++) {
+                things[i].uid = this.counter++;
+            }
+        }
+    }]);
+
+    return UIDManager;
+}();
+
+/**
+ * Finds and returns the thing in the given
+ * array that has the given uid (Unique Identification)
+ *
+ * @param  {Array} things
+ *         The group of things to search
+ *
+ * @param  {Integer} uid
+ *         The target unique identification to search for
+ *
+ * @return {IOObject}
+ *         The object with the given uid or undefined if
+ *         the object is not found
+ */
+
+
+UIDManager.find = function (things, target) {
+    for (var i = 0; i < things.length; i++) {
+        if (things[i].uid === target) return things[i];
+    }
+    return undefined;
+};
+"use strict";
+
+/* Should be const instead of var
+   but Safari does not allow it */
+var DEFAULT_SIZE = 50;
+var GRID_SIZE = 50;
+var DEFAULT_FILL_COLOR = "#ffffff";
+var DEFAULT_BORDER_COLOR = "#000000";
+var DEFAULT_ON_COLOR = "#3cacf2";
+
+var IO_PORT_LENGTH = 60;
+var IO_PORT_RADIUS = 7;
+var IO_PORT_BORDER_WIDTH = 1;
+var IO_PORT_LINE_WIDTH = 2;
+
+var WIRE_DIST_THRESHOLD = 5;
+var WIRE_DIST_THRESHOLD2 = WIRE_DIST_THRESHOLD * WIRE_DIST_THRESHOLD;
+var WIRE_DIST_ITERATIONS = 10;
+var WIRE_NEWTON_ITERATIONS = 5;
+var WIRE_SNAP_THRESHOLD = 10;
+
+var ROTATION_CIRCLE_RADIUS = 75;
+var ROTATION_CIRCLE_THICKNESS = 5;
+var ROTATION_CIRCLE_THRESHOLD = 5;
+var ROTATION_CIRCLE_R1 = Math.pow(ROTATION_CIRCLE_RADIUS - ROTATION_CIRCLE_THRESHOLD, 2);
+var ROTATION_CIRCLE_R2 = Math.pow(ROTATION_CIRCLE_RADIUS + ROTATION_CIRCLE_THRESHOLD, 2);
+
+var SIDENAV_WIDTH = 200;
+var ITEMNAV_WIDTH = 200;
+
+var LEFT_MOUSE_BUTTON = 0;
+var RIGHT_MOUSE_BUTTON = 1;
+
+var OPTION_KEY = 18;
+var SHIFT_KEY = 16;
+var BACKSPACE_KEY = 8;
+var DELETE_KEY = 46;
+var ENTER_KEY = 13;
+var ESC_KEY = 27;
+var A_KEY = 65;
+var C_KEY = 67;
+var V_KEY = 86;
+var X_KEY = 88;
+var Y_KEY = 89;
+var Z_KEY = 90;
+var CONTROL_KEY = 17;
+var COMMAND_KEY = 91;
+
+/**
+ * Determines whether the given point is
+ * within the rectangle defined by the
+ * given transform
+ *
+ * @param  {Transform} transform
+ *         The transform that represents the rectangle
+ *
+ * @param  {Vector} pos
+ *         * Must be in world coordinates *
+ *         The point to determine whether or not
+ *         it's within the rectangle
+ *
+ * @return {Boolean}
+ *         True if the point is within the rectangle,
+ *         false otherwise
+ */
+function rectContains(transform, pos) {
+    var tr = transform.size.scale(0.5);
+    var bl = transform.size.scale(-0.5);
+    var p = transform.toLocalSpace(pos);
+
+    return p.x > bl.x && p.y > bl.y && p.x < tr.x && p.y < tr.y;
+}
+
+/**
+ * Determines whether the given point
+ * is within the circle defined by the
+ * given transform
+ *
+ * @param  {Transform} transform
+ *         The transform that represents the circle
+ *
+ * @param  {Vector} pos
+ *         * Must be in world coordinates *
+ *         The point to determine whether or not
+ *         it's within the rectangle
+ *
+ * @return {Boolean}
+ *          True if the point is within the rectangle,
+ *          false otherwise
+ */
+function circleContains(transform, pos) {
+    var v = transform.toLocalSpace(pos);
+    return v.len2() <= transform.size.x * transform.size.x / 4;
+}
+
+/**
+ * Compares two transforms to see if they overlap.
+ * First tests it using a quick circle-circle
+ * intersection using the 'radius' of the transform
+ *
+ * Then uses a SAT (Separating Axis Theorem) method
+ * to determine whether or not the two transforms
+ * are intersecting
+ *
+ * @param  {Transform} a
+ *         The first transform
+ *
+ * @param  {Transform} b
+ *         The second transform
+ *
+ * @return {Boolean}
+ *         True if the two transforms are overlapping,
+ *         false otherwise
+ */
+function transformContains(A, B) {
+    // If both transforms are non-rotated
+    if (Math.abs(A.getAngle()) <= 1e-5 && Math.abs(B.getAngle()) <= 1e-5) {
+        var aPos = A.getPos(),
+            aSize = A.getSize();
+        var bPos = B.getPos(),
+            bSize = B.getSize();
+        return Math.abs(aPos.x - bPos.x) * 2 < aSize.x + bSize.x && Math.abs(aPos.y - bPos.y) * 2 < aSize.y + bSize.y;
+    }
+
+    // Quick check circle-circle intersection
+    var r1 = A.getRadius();
+    var r2 = B.getRadius();
+    var sr = r1 + r2; // Sum of radius
+    var dpos = A.getPos().sub(B.getPos()); // Delta position
+    if (dpos.dot(dpos) > sr * sr) return false;
+
+    /* Perform SAT */
+
+    // Get corners in local space of transform A
+    var a = A.getLocalCorners();
+
+    // Transform B's corners into A local space
+    var bworld = B.getCorners();
+    var b = [];
+    for (var i = 0; i < 4; i++) {
+        b[i] = A.toLocalSpace(bworld[i]);
+
+        // Offsets x and y to fix perfect lines
+        // where b[0] = b[1] & b[2] = b[3]
+        b[i].x += 0.0001 * i;
+        b[i].y += 0.0001 * i;
+    }
+
+    var corners = a.concat(b);
+
+    var minA, maxA, minB, maxB;
+
+    // SAT w/ x-axis
+    // Axis is <1, 0>
+    // So dot product is just the x-value
+    minA = maxA = corners[0].x;
+    minB = maxB = corners[4].x;
+    for (var j = 1; j < 4; j++) {
+        minA = Math.min(corners[j].x, minA);
+        maxA = Math.max(corners[j].x, maxA);
+        minB = Math.min(corners[j + 4].x, minB);
+        maxB = Math.max(corners[j + 4].x, maxB);
+    }
+    if (maxA < minB || maxB < minA) return false;
+
+    // SAT w/ y-axis
+    // Axis is <1, 0>
+    // So dot product is just the y-value
+    minA = maxA = corners[0].y;
+    minB = maxB = corners[4].y;
+    for (var j = 1; j < 4; j++) {
+        minA = Math.min(corners[j].y, minA);
+        maxA = Math.max(corners[j].y, maxA);
+        minB = Math.min(corners[j + 4].y, minB);
+        maxB = Math.max(corners[j + 4].y, maxB);
+    }
+    if (maxA < minB || maxB < minA) return false;
+
+    // SAT w/ other two axes
+    var normals = [b[3].sub(b[0]), b[3].sub(b[2])];
+    for (var i = 0; i < normals.length; i++) {
+        var normal = normals[i];
+        var minA = undefined,
+            maxA = undefined;
+        var minB = undefined,
+            maxB = undefined;
+        for (var j = 0; j < 4; j++) {
+            var s = corners[j].dot(normal);
+            minA = Math.min(s, minA ? minA : Infinity);
+            maxA = Math.max(s, maxA ? maxA : -Infinity);
+            var s2 = corners[j + 4].dot(normal);
+            minB = Math.min(s2, minB ? minB : Infinity);
+            maxB = Math.max(s2, maxB ? maxB : -Infinity);
+        }
+        if (maxA < minB || maxB < minA) return false;
+    }
+
+    return true;
+}
+
+/**
+ * Returns the nearest point on the edge
+ * of the given rectangle.
+ *
+ * @param  {Vector} bl
+ *         Bottom left corner of the rectangle
+ *
+ * @param  {Vector} tr
+ *         Top right corner of the rectangle
+ *
+ * @param  {Vector} pos
+ *         The position to get the nearest point on
+ *
+ * @return {Vector}
+ *         The closest position on the edge of
+ *         the rectangle from 'pos'
+ */
+function getNearestPointOnRect(bl, tr, pos) {
+    if (pos.x < bl.x) return V(bl.x, clamp(pos.y, bl.y, tr.y));
+    if (pos.x > tr.x) return V(tr.x, clamp(pos.y, bl.y, tr.y));
+    if (pos.y < bl.y) return V(clamp(pos.x, bl.x, tr.x), bl.y);
+    if (pos.y > tr.y) return V(clamp(pos.x, bl.x, tr.x), tr.y);
+    return V(0, 0);
+}
+
+// Okay, I know this is awful but it's like 5:47 am and I'm tired
+function getAllThingsBetween(things) {
+    var objects = [];
+    var wiresAndPorts = [];
+    for (var i = 0; i < things.length; i++) {
+        if (things[i] instanceof Wire || things[i] instanceof WirePort) wiresAndPorts.push(things[i]);else if (things[i] instanceof IOObject) objects.push(things[i]);
+    }
+    var allTheThings = [];
+    for (var i = 0; i < objects.length; i++) {
+        allTheThings.push(objects[i]);
+        for (var j = 0; j < objects[i].inputs.length; j++) {
+            var iport = objects[i].inputs[j];
+            obj = iport.input;
+            while (obj != undefined && !(obj instanceof OPort)) {
+                if (findByUID(allTheThings, obj.uid) == undefined) // If not added yet
+                    allTheThings.push(obj);
+                obj = obj.input;
+            }
+        }
+        for (var j = 0; j < objects[i].outputs.length; j++) {
+            var oport = objects[i].outputs[j];
+            for (var k = 0; k < oport.connections.length; k++) {
+                obj = oport.connections[k];
+                while (obj != undefined && !(obj instanceof IPort)) {
+                    if (findByUID(allTheThings, obj.uid) == undefined) // If not added yet
+                        allTheThings.push(obj);
+                    obj = obj.connection;
+                }
+            }
+        }
+    }
+    for (var i = 0; i < wiresAndPorts.length; i++) {
+        allTheThings.push(wiresAndPorts[i]);
+        var obj = wiresAndPorts[i].input;
+        while (obj != undefined && !(obj instanceof OPort)) {
+            if (findByUID(allTheThings, obj.uid) == undefined) // If not added yet
+                allTheThings.push(obj);
+            obj = obj.input;
+        }
+        obj = wiresAndPorts[i].connection;
+        while (obj != undefined && !(obj instanceof IPort)) {
+            if (findByUID(allTheThings, obj.uid) == undefined) // If not added yet
+                allTheThings.push(obj);
+            obj = obj.connection;
+        }
+    }
+    return allTheThings;
+}
+
+/**
+ * Finds and returns all the inter-connected wires
+ * in a given group of objects
+ *
+ * @param  {Array} objects
+ *         The group of objects to find the wires
+ *         in between
+ *
+ * @return {Array}
+ *         The resulting wires
+ */
+function getAllWires(objects) {
+    var wires = [];
+    for (var i = 0; i < objects.length; i++) {
+        var obj = objects[i];
+        for (var j = 0; j < obj.outputs.length; j++) {
+            var connections = obj.outputs[j].connections;
+            for (var k = 0; k < connections.length; k++) {
+                var wire = connections[k];
+                while (wire.connection instanceof WirePort) {
+                    wires.push(wire);
+                    wire = wire.connection.connection;
+                }
+                wires.push(wire);
+            }
+        }
+    }
+    return wires;
+}
+
+/**
+ * Removes all objects and wires+wireports
+ * between them
+ *
+ * @param  {Context} ctx
+ *         The context which the objects are apart of
+ *
+ * @param  {Array} objects
+ *         The array of objects in which to remove
+ *
+ * @param  {Boolean} doAction
+ *         True if the action should be re/undoable,
+ *         False otherwise
+ */
+function RemoveObjects(ctx, objects, doAction) {
+    if (objects.length === 0) return;
+
+    var action = new GroupAction();
+    var things = getAllThingsBetween(objects);
+    for (var i = 0; i < things.length; i++) {
+        if (things[i].selected) selectionTool.deselect([things[i]]);
+        if (things[i] instanceof Wire || things[i] instanceof WirePort) {
+            var oldinput = things[i].input;
+            var oldconnection = things[i].connection;
+            things[i].remove();
+            if (doAction) action.add(new DeleteAction(things[i], oldinput, oldconnection));
+        }
+    }
+    for (var i = 0; i < things.length; i++) {
+        if (!(things[i] instanceof Wire || things[i] instanceof WirePort)) {
+            things[i].remove();
+            if (doAction) action.add(new DeleteAction(things[i]));
+        }
+    }
+    if (doAction) ctx.addAction(action);
+    render();
+}
+
+/**
+ * Simply copies all elements of an array into
+ * another array and returns that array
+ * [DOES NOT COPY EACH OBJECT IN THE ARRAY]
+ *
+ * @param  {Array} arr
+ *         The array to copy
+ *
+ * @return {Array}
+ *         The copied array
+ */
+function CopyArray(arr) {
+    var copy = [];
+    for (var i = 0; i < arr.length; i++) {
+        copy.push(arr[i]);
+    }return copy;
+}
+
+/**
+ * Finds and returns the IC from a given icuid
+ *
+ * @param  {Integer} id
+ *         The icuid of the target IC
+ *         (Integrated Circuit Unique Identification)
+ *
+ * @return {IC}
+ *         The ic with the given icuid or undefined if
+ *         the IC is not found
+ */
+function findIC(id, ics) {
+    for (var i = 0; i < ics.length; i++) {
+        if (ics[i].icuid === id) return ics[i];
+    }
+    return undefined;
+}
+
+function findByUID(objects, id) {
+    for (var i = 0; i < objects.length; i++) {
+        if (objects[i].uid === id) return objects[i];
+    }
+    return undefined;
+}
+
+/**
+ * Creates a group transform action given
+ * the relevant objects and their original
+ * transforms
+ *
+ * @param  {Array} objects
+ *         The array of objects who have been transformed
+ *
+ * @param  {Array} t0
+ *         The array of transforms that correspond to
+ *         the original transform of the object in objects
+ */
+function createTransformAction(objects, t0) {
+    var action = new GroupAction();
+    for (var i = 0; i < objects.length; i++) {
+        var origin = t0[i];
+        var target = objects[i].transform.copy();
+        if (origin.equals(target)) continue;
+        action.add(new TransformAction(objects[i], origin, target));
+    }
+    return action;
+}
+
+/**
+ * Finds and returns the closest 't' value
+ * of the parametric equation for a line.
+ *
+ * Parametric function defined by
+ * X(t) = t(p2.x - p1.x) + p1.x
+ * Y(t) = t(p2.y - p1.y) + p1.y
+ *
+ * Solves for 't' from root of the derivative of
+ * the distance function between the line and <mx, my>
+ * D(t) = sqrt((X(t) - mx)^2 + (Y(t) - my)^2)
+ *
+ * @param  {Vector} p1
+ *         The first point of the line
+ *
+ * @param  {Vector} p2
+ *         The second point of the line
+ *
+ * @param  {Number} mx
+ *         The x-value of the point
+ *         to determine the 't' value
+ *
+ * @param  {Number} my
+ *         The y-value of the point
+ *         to determine the 't' value
+ *
+ * @return {Number}
+ *         The nearest 't' value of <mx, my>
+ *         on the line p1->p2 or -1 if the
+ *         dist < WIRE_DIST_THRESHOLD
+ */
+function getNearestT(p1, p2, mx, my) {
+    var dx = p2.x - p1.x;
+    var dy = p2.y - p1.y;
+    var t = (dx * (mx - p1.x) + dy * (my - p1.y)) / (dx * dx + dy * dy);
+    t = clamp(t, 0, 1);
+    var pos = V(dx * t + p1.x, dy * t + p1.y);
+    if (pos.sub(V(mx, my)).len2() < WIRE_DIST_THRESHOLD2) return t;else return -1;
+}
+
+/**
+ * Uses Newton's method to find the roots of
+ * the function 'f' given a derivative 'df'
+ *
+ * @param  {Number} iterations
+ *         The number of iterations to perform
+ *         Newton's method with; the smaller
+ *         the better but less accurate
+ *
+ * @param  {Number} t0
+ *         The starting root value parameter
+ *
+ * @param  {Number} x
+ *         Parameter 1 for the function
+ *
+ * @param  {Number} y
+ *         Parameter 2 for the function
+ *
+ * @param  {Function} f
+ *         The function to find the roots of
+ *         In the form f(t, x, y) = ...
+ *
+ * @param  {Function} df
+ *         The derivative of the function
+ *         In the form of df(t, x, y)
+ *
+ * @return {Number}
+ *         The parameter 't' that results in
+ *         f(t, x, y) = 0
+ */
+function findRoots(iterations, t0, x, y, f, df) {
+    var t = t0;
+    do {
+        var v = f(t, x, y);
+        var dv = df(t, x, y);
+        if (dv === 0) break;
+        t = t - v / dv;
+        t = clamp(t, 0.01, 0.99);
+    } while (iterations-- > 0);
+    return t;
+}
+
+// Separates an array of objects into three sub-groups
+// of input-type objects (switch and buttons),
+// output-type objects (LEDs),
+// and other components.
+function separateGroup(group) {
+    var inputs = [];
+    var components = [];
+    var outputs = [];
+    for (var i = 0; i < group.length; i++) {
+        var object = group[i];
+        if (object instanceof Switch || object instanceof Button || object instanceof Clock) inputs.push(object);else if (object instanceof LED) outputs.push(object);else components.push(object);
+    }
+    return { inputs: inputs, components: components, outputs: outputs };
+}
+
+/**
+ * Clamps a number between a given min and max
+ *
+ * @param  {Number} x
+ *         The number to clamp
+ *
+ * @param  {Number} min
+ *         The minimum
+ *
+ * @param  {Number} max
+ *         The maximum
+ *
+ * @return {Number}
+ *         The clamped number
+ */
+function clamp(x, min, max) {
+    return Math.min(Math.max(x, min), max);
+}
+
+// Code from https://stackoverflow.com/questions/5916900/how-can-you-detect-the-version-of-a-browser
+function getBrowser() {
+    if (navigator == undefined) return;
+    var ua = navigator.userAgent,
+        tem,
+        M = ua.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+    if (/trident/i.test(M[1])) {
+        tem = /\brv[ :]+(\d+)/g.exec(ua) || [];
+        return { name: 'IE', version: tem[1] || '' };
+    }
+    if (M[1] === 'Chrome') {
+        tem = ua.match(/\bOPR|Edge\/(\d+)/);
+        if (tem != null) {
+            return { name: 'Opera', version: tem[1] };
+        }
+    }
+    M = M[2] ? [M[1], M[2]] : [navigator.appName, navigator.appVersion, '-?'];
+    if ((tem = ua.match(/version\/(\d+)/i)) != null) {
+        M.splice(1, 1, tem[1]);
+    }
+    return {
+        name: M[0],
+        version: M[1]
+    };
+}
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var IOObject = function () {
+    function IOObject(context, x, y, w, h, img, isPressable, maxInputs, maxOutputs, selectionBoxWidth, selectionBoxHeight) {
+        _classCallCheck(this, IOObject);
+
+        if (context == undefined) context = getCurrentContext();
+        this.context = context;
+        x = x == undefined ? 0 : x;
+        y = y == undefined ? 0 : y;
+        this.transform = new Transform(V(x, y), V(w, h), 0, context.getCamera());
+        this.cullTransform = new Transform(this.transform.getPos(), V(0, 0), 0, this.context.getCamera());
+
+        this.name = this.getDisplayName();
+        this.img = img;
+        this.isOn = false;
+        this.isPressable = isPressable;
+        this.maxInputs = maxInputs;
+        this.maxOutputs = maxOutputs;
+        this.selected = false;
+
+        if (this.isPressable) this.selectionBoxTransform = new Transform(V(x, y), V(selectionBoxWidth, selectionBoxHeight), 0, context.getCamera());
+
+        this.outputs = [];
+        this.inputs = [];
+
+        if (maxOutputs > 0) this.setOutputAmount(1);
+    }
+
+    _createClass(IOObject, [{
+        key: 'setInputAmount',
+        value: function setInputAmount(target) {
+            target = clamp(target, 0, this.maxInputs);
+            while (this.inputs.length > target) {
+                this.inputs.splice(this.inputs.length - 1, 1);
+            }while (this.inputs.length < target) {
+                this.inputs.push(new IPort(this));
+            }for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].updatePosition();
+            }this.onTransformChange();
+        }
+    }, {
+        key: 'setOutputAmount',
+        value: function setOutputAmount(target) {
+            target = clamp(target, 0, this.maxOutputs);
+            while (this.outputs.length > target) {
+                this.outputs.splice(this.outputs.length - 1, 1);
+            }while (this.outputs.length < target) {
+                this.outputs.push(new OPort(this));
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].updatePosition();
+            }this.onTransformChange();
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.isPressable && this.selectionBoxTransform != undefined) {
+                this.selectionBoxTransform.setPos(this.transform.getPos());
+                this.selectionBoxTransform.setAngle(this.transform.getAngle());
+                this.selectionBoxTransform.setScale(this.transform.getScale());
+            }
+            this.updateCullTransform();
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].onTransformChange();
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].onTransformChange();
+            }
+        }
+    }, {
+        key: 'updateCullTransform',
+        value: function updateCullTransform() {
+            // Find min/max points on the object
+            var min = V(-this.transform.size.x / 2, -this.transform.size.y / 2);
+            var max = V(this.transform.size.x / 2, this.transform.size.y / 2);
+            if (this.selectionBoxTransform != undefined) {
+                min.x = Math.min(-this.selectionBoxTransform.size.x / 2, min.x);
+                min.y = Math.min(-this.selectionBoxTransform.size.y / 2, min.y);
+                max.x = Math.max(this.selectionBoxTransform.size.x / 2, max.x);
+                max.y = Math.max(this.selectionBoxTransform.size.y / 2, max.y);
+            }
+            for (var i = 0; i < this.inputs.length; i++) {
+                var iport = this.inputs[i];
+                min.x = Math.min(iport.target.x, min.x);
+                min.y = Math.min(iport.target.y, min.y);
+                max.x = Math.max(iport.target.x, max.x);
+                max.y = Math.max(iport.target.y, max.y);
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                var oport = this.outputs[i];
+                min.x = Math.min(oport.target.x, min.x);
+                min.y = Math.min(oport.target.y, min.y);
+                max.x = Math.max(oport.target.x, max.x);
+                max.y = Math.max(oport.target.y, max.y);
+            }
+            this.cullTransform.setSize(V(max.x - min.x, max.y - min.y));
+            var c = Math.cos(this.transform.getAngle());
+            var s = Math.sin(this.transform.getAngle());
+            var x = (min.x - -this.cullTransform.size.x / 2) * c + (min.y - -this.cullTransform.size.y / 2) * s;
+            var y = (min.y - -this.cullTransform.size.y / 2) * c + (min.x - -this.cullTransform.size.x / 2) * s;
+            this.cullTransform.setPos(this.transform.getPos().add(V(x, y)));
+            this.cullTransform.setAngle(this.transform.getAngle());
+            this.cullTransform.setScale(this.transform.getScale());
+            this.cullTransform.setSize(this.cullTransform.size.add(V(2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS)));
+        }
+    }, {
+        key: 'click',
+        value: function click() {
+            // console.log(this);
+        }
+    }, {
+        key: 'press',
+        value: function press() {}
+    }, {
+        key: 'release',
+        value: function release() {}
+    }, {
+        key: 'activate',
+        value: function activate(on, i) {
+            if (i == undefined) i = 0;
+
+            this.isOn = on;
+            if (this.outputs[i] != undefined) this.outputs[i].activate(on);
+        }
+    }, {
+        key: 'localSpace',
+        value: function localSpace() {
+            var renderer = this.context.getRenderer();
+            renderer.save();
+            this.transform.transformCtx(renderer.context);
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            this.localSpace();
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].draw();
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].draw(i);
+            }var renderer = this.context.getRenderer();
+            if (this.isPressable && this.selectionBoxTransform != undefined) renderer.rect(0, 0, this.selectionBoxTransform.size.x, this.selectionBoxTransform.size.y, this.getCol(), this.getBorderColor());
+
+            if (this.img != undefined) renderer.image(this.img, 0, 0, this.transform.size.x, this.transform.size.y, this.getImageTint());
+            renderer.restore();
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].remove();
+            }for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].remove();
+            }
+        }
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            return rectContains(this.transform, pos);
+        }
+    }, {
+        key: 'sContains',
+        value: function sContains(pos) {
+            return !this.isPressable && this.contains(pos) || this.isPressable && !this.contains(pos) && rectContains(this.selectionBoxTransform, pos);
+        }
+    }, {
+        key: 'iPortContains',
+        value: function iPortContains(pos) {
+            for (var i = 0; i < this.inputs.length; i++) {
+                if (this.inputs[i].contains(pos)) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'oPortContains',
+        value: function oPortContains(pos) {
+            for (var i = 0; i < this.outputs.length; i++) {
+                if (this.outputs[i].contains(pos)) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'setContext',
+        value: function setContext(context) {
+            this.context = context;
+            this.transform.setCamera(this.context.getCamera());
+            if (this.selectionBoxTransform != undefined) this.selectionBoxTransform.setCamera(this.context.getCamera());
+        }
+    }, {
+        key: 'setTransform',
+        value: function setTransform(t) {
+            this.transform = t;
+            this.onTransformChange();
+        }
+    }, {
+        key: 'setPos',
+        value: function setPos(v) {
+            this.transform.setPos(v);
+            this.onTransformChange();
+        }
+    }, {
+        key: 'setAngle',
+        value: function setAngle(a) {
+            this.transform.setAngle(a);
+            this.onTransformChange();
+        }
+        // setRotationAbout(a, c) {
+        //     this.transform.rotateAbout(a-this.getAngle(), c);
+        //     this.onTransformChange();
+        // }
+
+    }, {
+        key: 'setRotationAbout',
+        value: function setRotationAbout(a, c) {
+            this.transform.rotateAbout(-this.getAngle(), c);
+            this.transform.rotateAbout(a, c);
+            this.onTransformChange();
+        }
+    }, {
+        key: 'setName',
+        value: function setName(name) {
+            this.name = name;
+        }
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.cullTransform;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return this.inputs.length;
+        }
+    }, {
+        key: 'getImageTint',
+        value: function getImageTint() {
+            return this.getCol();
+        }
+    }, {
+        key: 'getCol',
+        value: function getCol() {
+            return this.selected ? '#1cff3e' : undefined;
+        }
+    }, {
+        key: 'getBorderColor',
+        value: function getBorderColor() {
+            return this.selected ? '#0d7f1f' : undefined;
+        }
+    }, {
+        key: 'getPos',
+        value: function getPos() {
+            return this.transform.pos.copy();
+        }
+    }, {
+        key: 'getAngle',
+        value: function getAngle() {
+            return this.transform.angle;
+        }
+    }, {
+        key: 'getSize',
+        value: function getSize() {
+            return this.transform.size;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 8;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 2;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.name;
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "IOObject";
+        }
+    }, {
+        key: 'getRenderer',
+        value: function getRenderer() {
+            return this.context.getRenderer();
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var copy = new this.constructor(this.context);
+            copy.transform = this.transform.copy();
+            copy.name = this.name;
+            if (this.selectionBoxTransform != undefined) copy.selectionBoxTransform = this.selectionBoxTransform.copy();
+            for (var i = 0; i < this.inputs.length; i++) {
+                copy.inputs[i] = this.inputs[i].copy();
+                copy.inputs[i].parent = copy;
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                copy.outputs[i] = this.outputs[i].copy();
+                copy.outputs[i].parent = copy;
+            }
+            return copy;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node) {
+            var objNode = createChildNode(node, this.constructor.getXMLName());
+            createTextElement(objNode, "uid", this.uid);
+            createTextElement(objNode, "name", this.getName());
+            createTextElement(objNode, "x", this.getPos().x);
+            createTextElement(objNode, "y", this.getPos().y);
+            createTextElement(objNode, "angle", this.getAngle());
+            return objNode;
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var uid = getIntValue(getChildNode(node, "uid"));
+            var name = getStringValue(getChildNode(node, "name"));
+            var x = getFloatValue(getChildNode(node, "x"));
+            var y = getFloatValue(getChildNode(node, "y"));
+            var angle = getFloatValue(getChildNode(node, "angle"));
+            var isOn = getBooleanValue(getChildNode(node, "isOn"), false);
+            this.uid = uid;
+            this.setName(name);
+            if (isOn) this.click(isOn);
+            this.setPos(V(x, y));
+            this.setAngle(angle);
+            return this;
+        }
+    }]);
+
+    return IOObject;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var IOPort = function () {
+    function IOPort(parent, dir) {
+        _classCallCheck(this, IOPort);
+
+        this.isOn = false;
+        this.parent = parent;
+        this.connections = [];
+
+        this.lineColor = DEFAULT_BORDER_COLOR;
+
+        this.origin = V(0, 0);
+        this.target = dir.scale(IO_PORT_LENGTH);
+        this.dir = dir;
+
+        this.set = false;
+
+        if (parent != undefined) this.updatePosition();
+    }
+
+    _createClass(IOPort, [{
+        key: 'getArray',
+        value: function getArray() {}
+    }, {
+        key: 'getIndex',
+        value: function getIndex() {
+            for (var i = 0; i < this.getArray().length && this.getArray()[i] !== this; i++) {}
+            return i;
+        }
+    }, {
+        key: 'getCol',
+        value: function getCol() {
+            return this.parent.selected || this.selected ? '#1cff3e' : undefined;
+        }
+    }, {
+        key: 'getBorderColor',
+        value: function getBorderColor() {
+            return this.parent.selected || this.selected ? '#0d7f1f' : undefined;
+        }
+    }, {
+        key: 'updatePosition',
+        value: function updatePosition() {
+            var i = this.getIndex();
+
+            var l = -this.parent.transform.size.y / 2 * (i - this.getArray().length / 2 + 0.5);
+            if (i === 0) l -= 1;
+            if (i === this.getArray().length - 1) l += 1;
+
+            this.origin.y = l;
+            this.target.y = l;
+            this.prevParentLength = this.getArray().length;
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (!this.set) this.updatePosition();
+
+            for (var i = 0; i < this.connections.length; i++) {
+                if (this.connections[i] != undefined) this.connections[i].onTransformChange();
+            }
+        }
+    }, {
+        key: 'activate',
+        value: function activate(on) {}
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            var transform = new Transform(this.target, V(IO_PORT_RADIUS, IO_PORT_RADIUS).scale(2), 0, this.parent.context.getCamera());
+            transform.setParent(this.parent.transform);
+            return circleContains(transform, pos);
+        }
+    }, {
+        key: 'sContains',
+        value: function sContains(pos) {
+            var angle = Math.atan2(this.target.y - this.origin.y, this.target.x - this.origin.x);
+            var len = this.origin.distanceTo(this.target);
+            var pos0 = this.target.add(this.origin).scale(0.5);
+            var transform = new Transform(pos0, V(len, IO_PORT_LINE_WIDTH * 2), angle, this.parent.context.getCamera());
+            transform.setParent(this.parent.transform);
+            return rectContains(transform, pos);
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            if (!this.set && this.getArray().length !== this.prevParentLength) this.updatePosition();
+
+            var o = this.origin;
+            var v = this.target;
+            var renderer = this.parent.getRenderer();
+
+            var lineCol = this.parent.getBorderColor() ? this.parent.getBorderColor() : this.lineColor;
+            renderer.line(o.x, o.y, v.x, v.y, lineCol, IO_PORT_LINE_WIDTH);
+
+            var circleFillCol = this.getCol() ? this.getCol() : DEFAULT_FILL_COLOR;
+            var circleBorderCol = this.getBorderColor() ? this.getBorderColor() : DEFAULT_BORDER_COLOR;
+            renderer.circle(v.x, v.y, IO_PORT_RADIUS, circleFillCol, circleBorderCol, IO_PORT_BORDER_WIDTH);
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {}
+    }, {
+        key: 'setOrigin',
+        value: function setOrigin(v) {
+            this.origin.x = v.x;
+            this.origin.y = v.y;
+            this.set = true;
+            if (this.parent != undefined) this.parent.onTransformChange();
+        }
+    }, {
+        key: 'setTarget',
+        value: function setTarget(v) {
+            this.target.x = v.x;
+            this.target.y = v.y;
+            this.set = true;
+            if (this.parent != undefined) this.parent.onTransformChange();
+        }
+    }, {
+        key: 'getPos',
+        value: function getPos() {
+            return this.parent.transform.getMatrix().mul(this.target);
+        }
+    }, {
+        key: 'getOPos',
+        value: function getOPos() {
+            return this.parent.transform.getMatrix().mul(this.origin);
+        }
+    }, {
+        key: 'getDir',
+        value: function getDir() {
+            return this.parent.transform.getMatrix().mul(this.dir).sub(this.parent.getPos()).normalize();
+        }
+    }, {
+        key: 'setName',
+        value: function setName(n) {}
+    }, {
+        key: 'setPos',
+        value: function setPos() {}
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "ioport";
+        }
+    }, {
+        key: 'getXMLName',
+        value: function getXMLName() {
+            return this.getDisplayName().toLowerCase().replace(/\s+/g, '');
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var port = new this.constructor();
+            port.origin = this.origin.copy();
+            port.target = this.target.copy();
+            port.set = this.set;
+            port.lineColor = this.lineColor;
+            return port;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node) {
+            var ioPortNode = createChildNode(node, this.getXMLName());
+            createTextElement(ioPortNode, "originx", this.origin.x);
+            createTextElement(ioPortNode, "originy", this.origin.y);
+            createTextElement(ioPortNode, "targetx", this.target.x);
+            createTextElement(ioPortNode, "targety", this.target.y);
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var originx = getFloatValue(getChildNode(node, "originx"));
+            var originy = getFloatValue(getChildNode(node, "originy"));
+            var targetx = getFloatValue(getChildNode(node, "targetx"));
+            var targety = getFloatValue(getChildNode(node, "targety"));
+            this.setOrigin(V(originx, originy));
+            this.setTarget(V(targetx, targety));
+            return this;
+        }
+    }, {
+        key: 'uid',
+        get: function get() {
+            return this.parent.uid;
+        }
+    }]);
+
+    return IOPort;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var IPort = function (_IOPort) {
+    _inherits(IPort, _IOPort);
+
+    function IPort(parent) {
+        _classCallCheck(this, IPort);
+
+        return _possibleConstructorReturn(this, (IPort.__proto__ || Object.getPrototypeOf(IPort)).call(this, parent, V(-1, 0)));
+    }
+
+    _createClass(IPort, [{
+        key: "getArray",
+        value: function getArray() {
+            return this.parent.inputs;
+        }
+    }, {
+        key: "activate",
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            this.parent.context.propogate(this, this.parent, this.isOn);
+        }
+    }, {
+        key: "remove",
+        value: function remove() {
+            if (this.input != undefined) this.input.disconnect(this);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "iport";
+        }
+    }, {
+        key: "input",
+        set: function set(obj) {
+            if (obj == undefined) this.connections = [];else this.connections[0] = obj;
+        },
+        get: function get() {
+            if (this.connections.length > 0) return this.connections[0];else return undefined;
+        }
+    }]);
+
+    return IPort;
+}(IOPort);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var OPort = function (_IOPort) {
+    _inherits(OPort, _IOPort);
+
+    function OPort(parent) {
+        _classCallCheck(this, OPort);
+
+        return _possibleConstructorReturn(this, (OPort.__proto__ || Object.getPrototypeOf(OPort)).call(this, parent, V(1, 0)));
+    }
+
+    _createClass(OPort, [{
+        key: "getArray",
+        value: function getArray() {
+            return this.parent.outputs;
+        }
+    }, {
+        key: "activate",
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            for (var i = 0; i < this.connections.length; i++) {
+                this.parent.context.propogate(this, this.connections[i], this.isOn);
+            }
+        }
+    }, {
+        key: "remove",
+        value: function remove() {
+            for (var i = 0; i < this.connections.length; i++) {
+                this.disconnect(this.connections[i]);
+            }
+        }
+    }, {
+        key: "connect",
+        value: function connect(wire) {
+            this.connections.push(wire);
+            wire.input = this;
+            wire.onTransformChange();
+            wire.activate(this.isOn);
+            return true;
+        }
+    }, {
+        key: "disconnect",
+        value: function disconnect(obj) {
+            for (var i = 0; i < this.connections.length && this.connections[i] !== obj; i++) {}
+            this.connections[i].input = undefined;
+            this.connections.splice(i, 1);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "oport";
+        }
+    }]);
+
+    return OPort;
+}(IOPort);
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Wire = function () {
+    function Wire(context) {
+        _classCallCheck(this, Wire);
+
+        this.context = context;
+
+        this.input = undefined;
+        this.connection = undefined;
+
+        this.curve = new BezierCurve(V(0, 0), V(0, 0), V(0, 0), V(0, 0));
+        this.isOn = false;
+        this.set = false; // Manually set bezier control points
+
+        this.straight = false;
+        this.dirty = true;
+        this.boundingBox = new Transform(0, 0, 0, context.getCamera());
+    }
+
+    _createClass(Wire, [{
+        key: 'activate',
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            if (this.connection != undefined) this.connection.activate(on);
+        }
+    }, {
+        key: 'split',
+        value: function split(t) {
+            var pos = this.curve.getPos(t);
+
+            var wire = new Wire(this.context);
+
+            var prevConnection = this.connection;
+            this.disconnect();
+
+            var port = new WirePort(this.context);
+            this.connect(port);
+            wire.connect(prevConnection);
+            port.connect(wire);
+
+            this.connection.setPos(pos);
+
+            getCurrentContext().addObject(port);
+            getCurrentContext().addWire(wire);
+        }
+    }, {
+        key: 'updateBoundingBox',
+        value: function updateBoundingBox() {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            var end1 = this.getPos(0);
+            var end2 = this.getPos(1);
+            var min = V(Math.min(end1.x, end2.x), Math.min(end1.y, end2.y));
+            var max = V(Math.max(end1.x, end2.x), Math.max(end1.y, end2.y));
+            this.boundingBox.setSize(V(max.x - min.x + 2, max.y - min.y + 2));
+            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.input != undefined) {
+                var pos = this.input.getPos();
+                if (this.set) {
+                    this.curve.c1.x += pos.x - this.curve.p1.x;
+                    this.curve.c1.y += pos.y - this.curve.p1.y;
+                } else {
+                    var dir = this.input instanceof WirePort ? this.input.getODir() : this.input.getDir();
+                    var c = dir.scale(DEFAULT_SIZE).add(pos);
+                    this.curve.c1.x = c.x;
+                    this.curve.c1.y = c.y;
+                }
+                this.curve.p1.x = pos.x;
+                this.curve.p1.y = pos.y;
+                this.curve.dirty = true;
+                this.dirty = true;
+            }
+            if (this.connection != undefined) {
+                var pos = this.connection.getPos();
+                if (this.set) {
+                    this.curve.c2.x += pos.x - this.curve.p2.x;
+                    this.curve.c2.y += pos.y - this.curve.p2.y;
+                } else {
+                    var dir = this.connection.getDir();
+                    var c = dir.scale(DEFAULT_SIZE).add(pos);
+                    this.curve.c2.x = c.x;
+                    this.curve.c2.y = c.y;
+                }
+                this.curve.p2.x = pos.x;
+                this.curve.p2.y = pos.y;
+                this.curve.dirty = true;
+                this.dirty = true;
+            }
+        }
+    }, {
+        key: 'connect',
+        value: function connect(obj) {
+            if (this.connection != undefined || obj.input != undefined) return false;
+
+            this.connection = obj;
+            obj.input = this;
+            this.onTransformChange();
+            obj.activate(this.isOn);
+
+            return true;
+        }
+    }, {
+        key: 'disconnect',
+        value: function disconnect() {
+            if (this.connection == undefined) return false;
+
+            this.connection.input = undefined;
+            this.connection.activate(false);
+            this.connection = undefined;
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+            var camera = this.context.getCamera();
+
+            var color = this.isOn ? '#3cacf2' : this.selected ? '#1cff3e' : DEFAULT_FILL_COLOR;
+            if (this.straight) {
+                var p1 = camera.getScreenPos(this.curve.p1);
+                var p2 = camera.getScreenPos(this.curve.p2);
+                renderer.line(p1.x, p1.y, p2.x, p2.y, color, 7 / camera.zoom);
+            } else {
+                this.curve.draw(color, 7 / camera.zoom, renderer);
+            }
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            if (this.input != undefined) this.input.disconnect(this);
+            if (this.connection != undefined) this.disconnect(this.connection);
+        }
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            return this.curve.getNearestT(pos.x, pos.y) !== -1;
+        }
+    }, {
+        key: 'setName',
+        value: function setName(n) {}
+    }, {
+        key: 'setPos',
+        value: function setPos() {}
+    }, {
+        key: 'getPos',
+        value: function getPos(t) {
+            if (t == undefined) t = 0.5;
+            return this.curve.getPos(t);
+        }
+    }, {
+        key: 'getNearestT',
+        value: function (_getNearestT) {
+            function getNearestT(_x, _x2) {
+                return _getNearestT.apply(this, arguments);
+            }
+
+            getNearestT.toString = function () {
+                return _getNearestT.toString();
+            };
+
+            return getNearestT;
+        }(function (mx, my) {
+            return this.straight ? getNearestT(this.curve.p1, this.curve.p2, mx, my) : this.curve.getNearestT(mx, my);
+        })
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.straight ? this.getBoundingBox() : this.curve.getBoundingBox();
+        }
+    }, {
+        key: 'getBoundingBox',
+        value: function getBoundingBox() {
+            if (!this.straight) return undefined;
+
+            this.updateBoundingBox();
+            return this.boundingBox;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "Wire";
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var copy = new Wire(this.context);
+            copy.curve = this.curve.copy();
+            copy.straight = this.straight;
+            return copy;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node, objects, wires) {
+            var wireNode = createChildNode(node, "wire");
+
+            createTextElement(wireNode, "uid", this.uid);
+
+            var inputNode = createChildNode(wireNode, "input");
+            createTextElement(inputNode, "uid", this.input.uid);
+            createTextElement(inputNode, "index", this.input.getIndex());
+
+            var connectionNode = createChildNode(wireNode, "connection");
+            createTextElement(connectionNode, "uid", this.connection.uid);
+            createTextElement(connectionNode, "index", this.connection.getIndex());
+
+            this.curve.writeTo(wireNode);
+
+            createTextElement(wireNode, "straight", this.straight);
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var objects = this.context.getObjects();
+            var wires = this.context.getWires();
+
+            var uid = getIntValue(getChildNode(node, "uid"));
+            this.uid = uid;
+
+            var bezier = getChildNode(node, "bezier");
+            this.curve.load(bezier);
+
+            var straight = getBooleanValue(getChildNode(node, "straight"));
+            this.straight = straight;
+
+            return this;
+        }
+    }, {
+        key: 'loadConnections',
+        value: function loadConnections(node, objects) {
+            var inputNode = getChildNode(node, "input");
+            var sourceUID = getIntValue(getChildNode(inputNode, "uid"));
+            var sourceIndx = getIntValue(getChildNode(inputNode, "index"));
+            var source = findByUID(objects, sourceUID);
+            source = source instanceof WirePort ? source : source.outputs[sourceIndx];
+
+            var connectionNode = getChildNode(node, "connection");
+            var targetUID = getIntValue(getChildNode(connectionNode, "uid"));
+            var targetIndx = getIntValue(getChildNode(connectionNode, "index"));
+            var target = findByUID(objects, targetUID);
+            console.log(targetUID);
+            console.log(targetIndx);
+            console.log(target);
+            target = target instanceof WirePort ? target : target.inputs[targetIndx];
+
+            source.connect(this);
+            this.connect(target);
+        }
+    }]);
+
+    return Wire;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var WirePort = function (_IOObject) {
+    _inherits(WirePort, _IOObject);
+
+    function WirePort(context) {
+        _classCallCheck(this, WirePort);
+
+        var _this = _possibleConstructorReturn(this, (WirePort.__proto__ || Object.getPrototypeOf(WirePort)).call(this, context, 0, 0, 2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS));
+
+        _this._input = undefined;
+        _this.connection = undefined;
+        _this.isOn = false;
+        _this.selected = false;
+        _this.hasSetTransform = false;
+        return _this;
+    }
+
+    _createClass(WirePort, [{
+        key: 'activate',
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            if (this.connection != undefined) this.connection.activate(on);
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            if (this.input != undefined) this.input.disconnect(this);
+            if (this.connection != undefined) this.disconnect(this.connection);
+        }
+    }, {
+        key: 'setTransform',
+        value: function setTransform(t) {
+            this.transform = t;
+            this.setPos(t.pos);
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.input != undefined) this.input.onTransformChange();
+            if (this.connection != undefined) this.connection.onTransformChange();
+        }
+    }, {
+        key: 'connect',
+        value: function connect(wire) {
+            if (this.connection != undefined) return false;
+
+            this.connection = wire;
+            wire.input = this;
+            wire.onTransformChange();
+            wire.activate(this.isOn);
+
+            return true;
+        }
+    }, {
+        key: 'disconnect',
+        value: function disconnect() {
+            if (this.connection == undefined) return;
+
+            this.connection.input = undefined;
+            this.connection = undefined;
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+            var camera = this.context.getCamera();
+
+            var v = camera.getScreenPos(this.getPos());
+            renderer.circle(v.x, v.y, 7 / camera.zoom, this.selected ? '#1cff3e' : '#ffffff', this.selected ? '#0d7f1f' : '#000000', 1 / camera.zoom);
+        }
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            return circleContains(this.transform, pos);
+        }
+    }, {
+        key: 'sContains',
+        value: function sContains(pos) {
+            return this.contains(pos);
+        }
+    }, {
+        key: 'setPos',
+        value: function setPos(v) {
+            if (this.input != undefined && this.connection != undefined) {
+                // Snap to end points of wires
+                this.input.straight = false;
+                this.connection.straight = false;
+                v.x = snap(this.input, v.x, this.input.curve.p1.x);
+                v.y = snap(this.input, v.y, this.input.curve.p1.y);
+                v.x = snap(this.connection, v.x, this.connection.curve.p2.x);
+                v.y = snap(this.connection, v.y, this.connection.curve.p2.y);
+            }
+
+            _get(WirePort.prototype.__proto__ || Object.getPrototypeOf(WirePort.prototype), 'setPos', this).call(this, v);
+        }
+    }, {
+        key: 'getIndex',
+        value: function getIndex() {
+            return 0;
+        }
+    }, {
+        key: 'getDir',
+        value: function getDir() {
+            return this.transform.getMatrix().mul(V(-1, 0)).sub(this.transform.pos).normalize();
+        }
+    }, {
+        key: 'getODir',
+        value: function getODir() {
+            return this.transform.getMatrix().mul(V(1, 0)).sub(this.transform.pos).normalize();
+        }
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.transform;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "Port";
+        }
+    }, {
+        key: 'input',
+        set: function set(input) {
+            this._input = input;
+            if (!this.hasSetTransform) {
+                this.hasSetTransform = true;
+                this.transform = new Transform(input.curve.p2.copy(), V(15, 15), 0, this.context.getCamera());
+            }
+        },
+        get: function get() {
+            return this._input;
+        }
+    }]);
+
+    return WirePort;
+}(IOObject);
+
+WirePort.getXMLName = function () {
+    return "port";
+};
+// Importer.types.push(WirePort);
+
+function snap(wire, x, c) {
+    if (Math.abs(x - c) <= WIRE_SNAP_THRESHOLD) {
+        wire.straight = true;
+        return c;
+    }
+    return x;
+}
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var CircuitDesigner = function () {
+    function CircuitDesigner(canvas, vw, vh) {
+        var _this = this;
+
+        _classCallCheck(this, CircuitDesigner);
+
+        this.renderer = new Renderer(this, canvas, vw, vh);
+        this.camera = new Camera(this);
+        this.history = new HistoryManager();
+
+        this.wires = [];
+        this.objects = [];
+
+        this.propogationQueue = [];
+
+        window.addEventListener('resize', function (e) {
+            return _this.resize();
+        }, false);
+
+        this.resize();
+    }
+
+    _createClass(CircuitDesigner, [{
+        key: 'reset',
+        value: function reset() {
+            for (var i = 0; i < this.objects.length; i++) {
+                this.objects[i].remove();
+            }for (var i = 0; i < this.wires.length; i++) {
+                this.wires[i].remove();
+            }this.objects = [];
+            this.wires = [];
+            this.propogationQueue = [];
+        }
+    }, {
+        key: 'propogate',
+        value: function propogate(sender, receiver, signal) {
+            var _this2 = this;
+
+            this.propogationQueue.push(new Propogation(sender, receiver, signal, function () {
+                return _this2.update(sender, receiver);
+            })); //() => this.update()));
+        }
+    }, {
+        key: 'update',
+        value: function update(sender, receiver) {
+            var _this3 = this;
+
+            var tempQueue = [];
+            while (this.propogationQueue.length > 0) {
+                tempQueue.push(this.propogationQueue.pop());
+            }while (tempQueue.length > 0) {
+                tempQueue.pop().send();
+            }if (this.propogationQueue.length > 0) updateRequests++;
+
+            updateRequests--;
+
+            console.log("update");
+
+            // See if the sender/receiver is a wire in the scene (not in an IC) to render
+            var inScene = false;
+            if (sender instanceof Wire || receiver instanceof Wire) {
+                for (var i = 0; i < this.wires.length; i++) {
+                    if (this.wires[i] === sender || this.wires[i] === receiver) {
+                        inScene = true;
+                        break;
+                    }
+                }
+            } else {
+                render();
+            }
+
+            if (inScene) render();
+
+            if (updateRequests > 0) {
+                setTimeout(function () {
+                    return _this3.update(sender, receiver);
+                }, PROPOGATION_TIME);
+            }
+        }
+    }, {
+        key: 'render',
+        value: function render() {
+            // console.log("RENDER");
+
+            this.renderer.clear();
+
+            var step = GRID_SIZE / this.camera.zoom;
+
+            var cpos = V(this.camera.pos.x / this.camera.zoom - this.renderer.canvas.width / 2, this.camera.pos.y / this.camera.zoom - this.renderer.canvas.height / 2);
+
+            var cpx = cpos.x - Math.floor(cpos.x / step) * step;
+            if (cpx < 0) cpx += step;
+            var cpy = cpos.y - Math.floor(cpos.y / step) * step;
+            if (cpy < 0) cpy += step;
+
+            // Batch-render the lines = uglier code + way better performance
+            this.renderer.save();
+            this.renderer.setStyles(undefined, '#999', 1 / this.camera.zoom);
+            this.renderer.context.beginPath();
+            for (var x = -cpx; x <= this.renderer.canvas.width - cpx + step; x += step) {
+                this.renderer._line(x, 0, x, this.renderer.canvas.height);
+            }
+            for (var y = -cpy; y <= this.renderer.canvas.height - cpy + step; y += step) {
+                this.renderer._line(0, y, this.renderer.canvas.width, y);
+            }
+            this.renderer.context.closePath();
+            this.renderer.context.stroke();
+            this.renderer.restore();
+
+            // Cull objects/wires if they aren't on the screen
+            for (var i = 0; i < this.wires.length; i++) {
+                if (this.camera.cull(this.wires[i].getCullBox())) this.wires[i].draw();
+            }
+            for (var i = 0; i < this.objects.length; i++) {
+                if (this.camera.cull(this.objects[i].getCullBox())) this.objects[i].draw();
+            }
+
+            CurrentTool.draw(this.renderer);
+        }
+    }, {
+        key: 'resize',
+        value: function resize() {
+            this.renderer.resize();
+            this.camera.resize();
+
+            render();
+        }
+    }, {
+        key: 'addObject',
+        value: function addObject(o) {
+            if (this.getIndexOfObject(o) === -1) this.objects.push(o);else console.error("Attempted to add an object that already existed!");
+        }
+    }, {
+        key: 'addWire',
+        value: function addWire(w) {
+            if (this.getIndexOfWire(w) === -1) this.wires.push(w);else console.error("Attempted to add a wire that already existed!");
+        }
+    }, {
+        key: 'getRenderer',
+        value: function getRenderer() {
+            return this.renderer;
+        }
+    }, {
+        key: 'getObjects',
+        value: function getObjects() {
+            return this.objects;
+        }
+    }, {
+        key: 'getWires',
+        value: function getWires() {
+            return this.wires;
+        }
+    }, {
+        key: 'getIndexOfObject',
+        value: function getIndexOfObject(obj) {
+            for (var i = 0; i < this.objects.length; i++) {
+                if (obj === this.objects[i]) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'getIndexOfWire',
+        value: function getIndexOfWire(wire) {
+            for (var i = 0; i < this.wires.length; i++) {
+                if (wire === this.wires[i]) return i;
+            }
+            return -1;
+        }
+    }]);
+
+    return CircuitDesigner;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var ICDesigner = function () {
+    function ICDesigner() {
+        _classCallCheck(this, ICDesigner);
+
+        this.canvas = document.getElementById("designer-canvas");
+
+        this.designer = new CircuitDesigner(this.canvas, 0.84, 0.76);
+        this.context = new Context(this.designer);
+
+        this.ic = undefined;
+        this.data = undefined;
+
+        this.drag = false;
+        this.dragObj = undefined;
+
+        this.dragEdge = undefined;
+
+        this.disabled = true;
+
+        this.confirmButton = document.getElementById("ic-confirmbutton");
+        this.cancelButton = document.getElementById("ic-cancelbutton");
+
+        this.hide();
+    }
+
+    _createClass(ICDesigner, [{
+        key: "confirm",
+        value: function confirm() {
+            if (this.ic != undefined) {
+                ICData.add(this.data);
+                var out = this.ic.copy();
+                out.setContext(context);
+                context.getDesigner().addObject(out);
+                this.hide();
+            }
+        }
+    }, {
+        key: "cancel",
+        value: function cancel() {
+            if (this.ic != undefined) {
+                this.hide();
+            }
+        }
+    }, {
+        key: "show",
+        value: function show(selections) {
+            currentContext = this.context;
+            this.disabled = false;
+            TransformController.disabled = true;
+            WireController.disabled = true;
+            SelectionBox.disabled = true;
+
+            this.hidden = false;
+            this.canvas.style.visibility = "visible";
+            this.confirmButton.style.visibility = "visible";
+            this.cancelButton.style.visibility = "visible";
+            if (ItemNavController.isOpen) ItemNavController.toggle();
+            popup.hide();
+
+            this.data = ICData.create(selections);
+            this.ic = new IC(this.context, this.data, 0, 0);
+
+            this.designer.addObject(this.ic);
+            selectionTool.deselectAll();
+            this.context.getCamera().zoom = 0.5 + 0.1 * (this.ic.transform.size.x - 50) / 20;
+            render();
+        }
+    }, {
+        key: "hide",
+        value: function hide() {
+            currentContext = context;
+            this.disabled = true;
+            TransformController.disabled = false;
+            WireController.disabled = false;
+            SelectionBox.disabled = false;
+
+            this.hidden = true;
+            this.canvas.style.visibility = "hidden";
+            this.confirmButton.style.visibility = "hidden";
+            this.cancelButton.style.visibility = "hidden";
+            if (this.ic != undefined) {
+                this.ic.remove();
+                this.ic = undefined;
+                this.data = undefined;
+            }
+            render();
+        }
+    }, {
+        key: "onMouseDown",
+        value: function onMouseDown() {
+            if (this.ic == undefined) return false;
+
+            var worldMousePos = Input.getWorldMousePos();
+
+            var inputs = this.ic.inputs;
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                if (inp.sContains(worldMousePos)) {
+                    this.drag = true;
+                    this.dragObj = this.data.iports[i];
+                    return true;
+                }
+            }
+            var outputs = this.ic.outputs;
+            for (var i = 0; i < outputs.length; i++) {
+                var out = outputs[i];
+                if (out.sContains(worldMousePos)) {
+                    this.drag = true;
+                    this.dragObj = this.data.oports[i];
+                    return true;
+                }
+            }
+
+            var pos = this.ic.getPos();
+            var size = this.ic.getSize();
+            var transform1 = new Transform(pos, size.scale(1.2), 0, this.context.getCamera());
+            var transform2 = new Transform(pos, size.scale(0.8), 0, this.context.getCamera());
+            if (rectContains(transform1, worldMousePos) && !rectContains(transform2, worldMousePos)) {
+                if (worldMousePos.y < pos.y + size.y / 2 - 4 && worldMousePos.y > pos.y - size.y / 2 + 4) {
+                    this.dragEdge = "horizontal";
+                } else {
+                    this.dragEdge = "vertical";
+                }
+                return true;
+            }
+        }
+    }, {
+        key: "onMouseUp",
+        value: function onMouseUp() {
+            if (this.ic == undefined) return false;
+
+            this.drag = false;
+            this.dragObj = undefined;
+            this.dragEdge = undefined;
+        }
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {
+            if (this.ic == undefined) return false;
+
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (this.drag) {
+                var size = this.ic.getSize();
+                var p = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), worldMousePos);
+                var v1 = p.sub(worldMousePos).normalize().scale(size.scale(0.5)).add(p);
+                var v2 = p.sub(worldMousePos).normalize().scale(size.scale(0.5).sub(V(IO_PORT_LENGTH + size.x / 2 - 25, IO_PORT_LENGTH + size.y / 2 - 25))).add(p);
+                this.dragObj.setOrigin(v1);
+                this.dragObj.setTarget(v2);
+
+                this.ic.update();
+
+                return true;
+            }
+            if (this.dragEdge != undefined) {
+                if (this.dragEdge === "horizontal") {
+                    this.data.transform.setWidth(Math.abs(2 * worldMousePos.x));
+                } else {
+                    this.data.transform.setHeight(Math.abs(2 * worldMousePos.y));
+                }
+                this.data.recalculatePorts();
+
+                this.ic.update();
+
+                return true;
+            }
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {}
+    }]);
+
+    return ICDesigner;
+}();
+"use strict";
+
+var images = [];
+
+var popup;
+var contextmenu;
+var icdesigner;
+
+var context;
+
+var currentContext;
+
+var browser = getBrowser();
+
+var saved = true;
+
+// Prompt for exit
+window.onbeforeunload = function (e) {
+    if (!saved) {
+        var dialogText = "You have unsaved changes.";
+        e.returnValue = dialogText;
+        return dialogText;
+    }
+};
+
+function start() {
+    var designer = new CircuitDesigner(document.getElementById("canvas"));
+    context = new Context(designer);
+    currentContext = context;
+
+    popup = new SelectionPopup();
+    icdesigner = new ICDesigner();
+    contextmenu = new ContextMenu();
+
+    Input.registerContext(context);
+    Input.registerContext(icdesigner.context);
+    Input.addMouseListener(icdesigner);
+    Input.addMouseListener(TransformController);
+    Input.addMouseListener(WireController);
+    Input.addMouseListener(SelectionBox);
+
+    selectionTool.activate();
+
+    loadImage(images, ["constLow.svg", "constHigh.svg", "buttonUp.svg", "buttonDown.svg", "switchUp.svg", "switchDown.svg", "led.svg", "ledLight.svg", "buffer.svg", "and.svg", "or.svg", "xor.svg", "segment1.svg", "segment2.svg", "segment3.svg", "segment4.svg", "clock.svg", "clockOn.svg", "keyboard.svg", "base.svg"], 0, onFinishLoading);
+}
+
+function wire(source, target) {
+    var wire = new Wire(getCurrentContext(), source);
+    source.connect(wire);
+    wire.connect(target);
+}
+
+function reset() {
+    ICData.ICs = [];
+    currentContext = context;
+    context.reset();
+}
+
+function onFinishLoading() {
+    render();
+}
+
+var renderQueue = 0;
+
+function render() {
+    if (renderQueue === 0) requestAnimationFrame(actualRender);
+    renderQueue++;
+}
+
+function actualRender() {
+    // console.log("Saved : " + (renderQueue - 1) + " render calls!");
+    renderQueue = 0;
+    getCurrentContext().render();
+}
+
+function loadImage(imgs, imageNames, index, onFinish) {
+    var img = new Image();
+    img.onload = function () {
+        imgs[imageNames[index]] = img;
+        img.dx = 0;
+        img.dy = 0;
+        img.ratio = img.width / img.height;
+        if (index === imageNames.length - 1) onFinish(imgs);else loadImage(imgs, imageNames, index + 1, onFinish);
+    };
+    img.src = "img/items/" + imageNames[index];
+}
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Renderer = function () {
+    function Renderer(parent, canvas, vw, vh) {
+        _classCallCheck(this, Renderer);
+
+        this.parent = parent;
+        this.canvas = canvas;
+        this.tintCanvas = document.createElement("canvas");
+        this.vw = vw == undefined ? 1 : vw;
+        this.vh = vh == undefined ? 1 : vh;
+
+        this.context = this.canvas.getContext("2d");
+
+        this.tintCanvas.width = 100;
+        this.tintCanvas.height = 100;
+        this.tintContext = this.tintCanvas.getContext("2d");
+    }
+
+    _createClass(Renderer, [{
+        key: "getCamera",
+        value: function getCamera() {
+            return this.parent.camera;
+        }
+    }, {
+        key: "setCursor",
+        value: function setCursor(cursor) {
+            this.canvas.style.cursor = cursor;
+        }
+    }, {
+        key: "resize",
+        value: function resize() {
+            this.canvas.width = window.innerWidth * this.vw;
+            this.canvas.height = window.innerHeight * this.vh;
+        }
+    }, {
+        key: "clear",
+        value: function clear() {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }, {
+        key: "save",
+        value: function save() {
+            this.context.save();
+        }
+    }, {
+        key: "restore",
+        value: function restore() {
+            this.context.restore();
+        }
+    }, {
+        key: "translate",
+        value: function translate(v) {
+            this.context.translate(v.x, v.y);
+        }
+    }, {
+        key: "scale",
+        value: function scale(s) {
+            this.context.scale(s.x, s.y);
+        }
+    }, {
+        key: "rotate",
+        value: function rotate(a) {
+            this.context.rotate(a);
+        }
+    }, {
+        key: "rect",
+        value: function rect(x, y, w, h, fillStyle, borderStyle, borderSize, alpha) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
+            this.context.beginPath();
+            this.context.rect(x - w / 2, y - h / 2, w, h);
+            this.context.fill();
+            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "circle",
+        value: function circle(x, y, r, fillStyle, borderStyle, borderSize, alpha) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
+            this.context.beginPath();
+            this.context.arc(x, y, r, 0, 2 * Math.PI);
+            if (fillStyle != undefined) this.context.fill();
+            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "image",
+        value: function image(img, x, y, w, h, tint) {
+            this.context.drawImage(img, x - w / 2, y - h / 2, w, h);
+            if (tint != undefined) this.tintImage(img, x, y, w, h, tint);
+        }
+    }, {
+        key: "tintImage",
+        value: function tintImage(img, x, y, w, h, tint) {
+            this.tintContext.clearRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
+            this.tintContext.fillStyle = tint;
+            this.tintContext.fillRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
+            if (browser.name !== "Firefox") this.tintContext.globalCompositeOperation = "destination-atop";else this.tintContext.globalCompositeOperation = "source-atop";
+            this.tintContext.drawImage(img, 0, 0, this.tintCanvas.width, this.tintCanvas.height);
+
+            this.context.globalAlpha = 0.5;
+            this.context.drawImage(this.tintCanvas, x - w / 2, y - h / 2, w, h);
+            this.context.globalAlpha = 1.0;
+        }
+    }, {
+        key: "text",
+        value: function text(txt, x, y, w, h, textAlign) {
+            this.save();
+            this.context.font = "lighter 15px arial";
+            this.context.fillStyle = '#000';
+            this.context.textAlign = textAlign;
+            this.context.textBaseline = "middle";
+            this.context.fillText(txt, x, y);
+            this.restore();
+        }
+    }, {
+        key: "getTextWidth",
+        value: function getTextWidth(txt) {
+            var width = 0;
+            this.save();
+            this.context.font = "lighter 15px arial";
+            this.context.fillStyle = '#000';
+            this.context.textBaseline = "middle";
+            width = this.context.measureText(txt).width;
+            this.restore();
+            return width;
+        }
+    }, {
+        key: "line",
+        value: function line(x1, y1, x2, y2, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.lineTo(x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "_line",
+        value: function _line(x1, y1, x2, y2) {
+            this.context.moveTo(x1, y1);
+            this.context.lineTo(x2, y2);
+        }
+    }, {
+        key: "curve",
+        value: function curve(x1, y1, x2, y2, cx1, cy1, cx2, cy2, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "quadCurve",
+        value: function quadCurve(x1, y1, x2, y2, cx, cy, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.quadraticCurveTo(cx, cy, x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "shape",
+        value: function shape(points, fillStyle, borderStyle, borderSize) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize);
+            this.context.beginPath();
+            this.context.moveTo(points[0].x, points[0].y);
+            for (var i = 1; i < points.length; i++) {
+                this.context.lineTo(points[i].x, points[i].y);
+            }this.context.lineTo(points[0].x, points[0].y);
+            this.context.fill();
+            this.context.closePath();
+            if (borderSize > 0) this.context.stroke();
+            this.restore();
+        }
+    }, {
+        key: "setStyles",
+        value: function setStyles(fillStyle, borderStyle, borderSize, alpha) {
+            if (alpha != undefined && alpha !== this.context.globalAlpha) this.context.globalAlpha = alpha;
+
+            fillStyle = fillStyle == undefined ? '#ffffff' : fillStyle;
+            if (fillStyle != undefined && fillStyle !== this.context.fillStyle) this.context.fillStyle = fillStyle;
+
+            borderStyle = borderStyle == undefined ? '#000000' : borderStyle;
+            if (borderStyle != undefined && borderStyle !== this.context.strokeStyle) this.context.strokeStyle = borderStyle;
+
+            borderSize = borderSize == undefined ? 2 : borderSize;
+            if (borderSize != undefined && borderSize !== this.context.lineWidth) this.context.lineWidth = borderSize;
+        }
+    }]);
+
+    return Renderer;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var BusButtonModule = function (_Module) {
+    _inherits(BusButtonModule, _Module);
+
+    function BusButtonModule(parent, divName) {
+        _classCallCheck(this, BusButtonModule);
+
+        return _possibleConstructorReturn(this, (BusButtonModule.__proto__ || Object.getPrototypeOf(BusButtonModule)).call(this, parent, divName));
+    }
+
+    _createClass(BusButtonModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var iports = 0,
+                oports = 0;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                if (selections[i] instanceof IPort) {
+                    iports++;
+                } else if (selections[i] instanceof OPort) {
+                    oports++;
+                } else {
+                    this.setVisibility("none");
+                    return;
+                }
+            }
+            this.setVisibility(iports === oports ? "inherit" : "none");
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.createBus();
+        }
+    }, {
+        key: "createBus",
+        value: function createBus() {
+            var selections = selectionTool.selections;
+
+            var iports = [],
+                oports = [];
+            for (var i = 0; i < selections.length; i++) {
+                if (selections[i] instanceof IPort) iports.push(selections[i]);else oports.push(selections[i]);
+            }
+
+            while (oports.length > 0) {
+                var maxDist = -Infinity,
+                    maxDistIndex = -1,
+                    maxMinDistIndex = -1;
+                for (var i = 0; i < oports.length; i++) {
+                    var oport = oports[i];
+                    var opos = oport.getPos();
+                    var minDist = Infinity,
+                        minDistIndex = -1;
+                    for (var j = 0; j < iports.length; j++) {
+                        var iport = iports[j];
+                        var dist = opos.sub(iport.getPos()).len2();
+                        if (dist < minDist) {
+                            minDist = dist;
+                            minDistIndex = j;
+                        }
+                    }
+                    if (minDist > maxDist) {
+                        maxDist = minDist;
+                        maxDistIndex = i;
+                        maxMinDistIndex = minDistIndex;
+                    }
+                }
+                var wire = new Wire(context);
+                getCurrentContext().add(wire);
+                oports[maxDistIndex].connect(wire);
+                wire.connect(iports[maxMinDistIndex]);
+                wire.set = true;
+                wire.straight = true;
+                oports.splice(maxDistIndex, 1);
+                iports.splice(maxMinDistIndex, 1);
+            }
+            render();
+        }
+    }]);
+
+    return BusButtonModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ColorPickerModule = function (_Module) {
+    _inherits(ColorPickerModule, _Module);
+
+    function ColorPickerModule(parent, divName, divTextName) {
+        _classCallCheck(this, ColorPickerModule);
+
+        return _possibleConstructorReturn(this, (ColorPickerModule.__proto__ || Object.getPrototypeOf(ColorPickerModule)).call(this, parent, divName, divTextName));
+    }
+
+    _createClass(ColorPickerModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var allLEDs = true,
+                allSame = true;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                allLEDs = allLEDs && selections[i] instanceof LED;
+                if (allLEDs) allSame = allSame && selections[i].color === selections[0].color;
+            }
+            this.setVisibility(allLEDs ? "inherit" : "none");
+            this.setValue(allLEDs && allSame ? selections[0].color : '#ffffff');
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                selections[i].color = this.getValue();
+            }
+        }
+    }, {
+        key: "onFocus",
+        value: function onFocus() {
+            this.parent.focused = true;
+        }
+    }, {
+        key: "onBlur",
+        value: function onBlur() {
+            this.parent.focused = false;
+            this.onChange();
+        }
+    }]);
+
+    return ColorPickerModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ICButtonModule = function (_Module) {
+    _inherits(ICButtonModule, _Module);
+
+    function ICButtonModule(parent, divName) {
+        _classCallCheck(this, ICButtonModule);
+
+        return _possibleConstructorReturn(this, (ICButtonModule.__proto__ || Object.getPrototypeOf(ICButtonModule)).call(this, parent, divName));
+    }
+
+    _createClass(ICButtonModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var count = 0;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                if (selections[i] instanceof IOObject && !(selections[i] instanceof WirePort)) count++;
+            }
+            this.setVisibility(count >= 2 ? "inherit" : "none");
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            icdesigner.show(selectionTool.selections);
+        }
+    }]);
+
+    return ICButtonModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var InputCountModule = function (_Module) {
+    _inherits(InputCountModule, _Module);
+
+    function InputCountModule(parent, divName, divTextName) {
+        _classCallCheck(this, InputCountModule);
+
+        return _possibleConstructorReturn(this, (InputCountModule.__proto__ || Object.getPrototypeOf(InputCountModule)).call(this, parent, divName, divTextName));
+    }
+
+    _createClass(InputCountModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var allSame = true,
+                display = true;
+            var maxMinValue = 0;
+            var minMaxValue = 999;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                display = display && selections[i].maxInputs > 1 && selections[i].noChange !== true;
+                allSame = allSame && selections[i].getInputAmount() === selections[0].getInputAmount();
+                maxMinValue = Math.max(selections[i].getMinInputFieldCount(), maxMinValue);
+                minMaxValue = Math.min(selections[i].getMaxInputFieldCount(), minMaxValue);
+            }
+            this.setValue(allSame ? selections[0].getInputAmount() : "");
+            this.setPlaceholder(allSame ? "" : "-");
+            this.setVisibility(display ? "inherit" : "none");
+            this.div.min = maxMinValue;
+            this.div.max = minMaxValue;
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                selections[i].setInputAmount(Number(this.getValue()));
+            }
+        }
+    }]);
+
+    return InputCountModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PositionXModule = function (_Module) {
+    _inherits(PositionXModule, _Module);
+
+    function PositionXModule(parent, divName) {
+        _classCallCheck(this, PositionXModule);
+
+        return _possibleConstructorReturn(this, (PositionXModule.__proto__ || Object.getPrototypeOf(PositionXModule)).call(this, parent, divName));
+    }
+
+    _createClass(PositionXModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var allSame = true;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                allSame = allSame && selections[i].getPos().x === selections[0].getPos().x;
+            }this.setValue(allSame ? +(selections[0].getPos().x / GRID_SIZE - 0.5).toFixed(3) : "");
+            this.setPlaceholder(allSame ? "" : "-");
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {
+            var action = new GroupAction();
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                if (!selections[i].transform) {
+                    this.onShow(); // Update value before exiting
+                    return;
+                }
+                var origin = selections[i].transform.copy();
+                selections[i].setPos(V(GRID_SIZE * (Number(this.getValue()) + 0.5), selections[i].transform.getPos().y));
+                var target = selections[i].transform.copy();
+                action.add(new TransformAction(selections[i], origin, target));
+            }
+            getCurrentContext().addAction(action);
+        }
+    }]);
+
+    return PositionXModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PositionYModule = function (_Module) {
+    _inherits(PositionYModule, _Module);
+
+    function PositionYModule(parent, divName) {
+        _classCallCheck(this, PositionYModule);
+
+        return _possibleConstructorReturn(this, (PositionYModule.__proto__ || Object.getPrototypeOf(PositionYModule)).call(this, parent, divName));
+    }
+
+    _createClass(PositionYModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var allSame = true;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                allSame = allSame && selections[i].getPos().y === selections[0].getPos().y;
+            }this.setValue(allSame ? +(selections[0].getPos().y / GRID_SIZE - 0.5).toFixed(3) : "");
+            this.setPlaceholder(allSame ? "" : "-");
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {
+            var action = new GroupAction();
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                if (!selections[i].transform) {
+                    this.onShow(); // Update value before exiting
+                    return;
+                }
+                var origin = selections[i].transform.copy();
+                selections[i].setPos(V(selections[i].transform.getPos().x, GRID_SIZE * (Number(this.getValue()) + 0.5)));
+                var target = selections[i].transform.copy();
+                action.add(new TransformAction(selections[i], origin, target));
+            }
+            getCurrentContext().addAction(action);
+        }
+    }]);
+
+    return PositionYModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectionPopup = function (_Popup) {
+    _inherits(SelectionPopup, _Popup);
+
+    function SelectionPopup() {
+        _classCallCheck(this, SelectionPopup);
+
+        var _this = _possibleConstructorReturn(this, (SelectionPopup.__proto__ || Object.getPrototypeOf(SelectionPopup)).call(this, "popup"));
+
+        _this.add(new TitleModule(_this, "popup-name"));
+
+        _this.add(new PositionXModule(_this, "popup-position-x"));
+        _this.add(new PositionYModule(_this, "popup-position-y"));
+
+        _this.add(new InputCountModule(_this, "popup-input-count", "popup-input-count-text"));
+
+        _this.add(new ColorPickerModule(_this, "popup-color-picker", "popup-color-text"));
+
+        _this.add(new ICButtonModule(_this, "popup-ic-button"));
+        _this.add(new BusButtonModule(_this, "popup-bus-button"));
+        return _this;
+    }
+
+    _createClass(SelectionPopup, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code) {
+            if ((code === DELETE_KEY || code === BACKSPACE_KEY) && !this.focused) {
+                RemoveObjects(getCurrentContext(), selectionTool.selections, true);
+                return;
+            }
+            if (code === ESC_KEY && !this.hidden) {
+                selectionTool.deselectAll();
+                render();
+                return;
+            }
+        }
+    }, {
+        key: "onEnter",
+        value: function onEnter() {
+            this.blur();
+        }
+    }, {
+        key: "update",
+        value: function update() {
+            var selections = selectionTool.selections;
+            if (selections.length > 0) {
+                this.show();
+                this.onMove();
+            } else {
+                this.hide();
+            }
+        }
+    }, {
+        key: "onMove",
+        value: function onMove() {
+            var camera = getCurrentContext().getCamera();
+            if (selectionTool.selections.length > 0) {
+                selectionTool.recalculateMidpoint();
+                var pos = camera.getScreenPos(selectionTool.midpoint);
+                pos.y -= this.div.clientHeight / 2;
+                this.setPos(pos);
+            }
+        }
+    }, {
+        key: "onWheel",
+        value: function onWheel() {
+            this.onMove();
+        }
+    }]);
+
+    return SelectionPopup;
+}(Popup);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var TitleModule = function (_Module) {
+    _inherits(TitleModule, _Module);
+
+    function TitleModule(parent, divName) {
+        _classCallCheck(this, TitleModule);
+
+        return _possibleConstructorReturn(this, (TitleModule.__proto__ || Object.getPrototypeOf(TitleModule)).call(this, parent, divName));
+    }
+
+    _createClass(TitleModule, [{
+        key: "onShow",
+        value: function onShow() {
+            var allSame = true;
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                allSame = allSame && selections[i].getName() === selections[0].getName();
+            }this.setValue(allSame ? selections[0].getName() : "<Multiple>");
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {
+            var selections = selectionTool.selections;
+            for (var i = 0; i < selections.length; i++) {
+                selections[i].setName(this.getValue());
+            }
+        }
+    }, {
+        key: "onFocus",
+        value: function onFocus() {
+            this.parent.focused = true;
+        }
+    }, {
+        key: "onBlur",
+        value: function onBlur() {
+            this.parent.focused = false;
+            this.onChange();
+        }
+    }]);
+
+    return TitleModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ContextMenu = function (_Popup) {
+    _inherits(ContextMenu, _Popup);
+
+    function ContextMenu() {
+        _classCallCheck(this, ContextMenu);
+
+        var _this = _possibleConstructorReturn(this, (ContextMenu.__proto__ || Object.getPrototypeOf(ContextMenu)).call(this, "context-menu"));
+
+        _this.add(new CutModule(_this, "context-menu-cut"));
+        _this.add(new CopyModule(_this, "context-menu-copy"));
+        _this.add(new PasteModule(_this, "context-menu-paste"));
+        _this.add(new SelectAllModule(_this, "context-menu-select-all"));
+
+        _this.add(new UndoModule(_this, "context-menu-undo"));
+        _this.add(new RedoModule(_this, "context-menu-redo"));
+        return _this;
+    }
+
+    _createClass(ContextMenu, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code) {
+            if (code === ESC_KEY && !this.hidden) {
+                this.hide();
+                return;
+            }
+        }
+    }, {
+        key: "onShow",
+        value: function onShow() {
+            _get(ContextMenu.prototype.__proto__ || Object.getPrototypeOf(ContextMenu.prototype), "onShow", this).call(this);
+
+            var pos = Input.getRawMousePos();
+            this.setPos(V(pos.x, pos.y));
+        }
+    }]);
+
+    return ContextMenu;
+}(Popup);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var CopyModule = function (_Module) {
+    _inherits(CopyModule, _Module);
+
+    function CopyModule(parent, divName) {
+        _classCallCheck(this, CopyModule);
+
+        return _possibleConstructorReturn(this, (CopyModule.__proto__ || Object.getPrototypeOf(CopyModule)).call(this, parent, divName));
+    }
+
+    _createClass(CopyModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(selectionTool.selections.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("copy");
+        }
+    }]);
+
+    return CopyModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var CutModule = function (_Module) {
+    _inherits(CutModule, _Module);
+
+    function CutModule(parent, divName) {
+        _classCallCheck(this, CutModule);
+
+        return _possibleConstructorReturn(this, (CutModule.__proto__ || Object.getPrototypeOf(CutModule)).call(this, parent, divName));
+    }
+
+    _createClass(CutModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(selectionTool.selections.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("cut");
+        }
+    }]);
+
+    return CutModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PasteModule = function (_Module) {
+    _inherits(PasteModule, _Module);
+
+    function PasteModule(parent, divName) {
+        _classCallCheck(this, PasteModule);
+
+        return _possibleConstructorReturn(this, (PasteModule.__proto__ || Object.getPrototypeOf(PasteModule)).call(this, parent, divName));
+    }
+
+    _createClass(PasteModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(false);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("copy");
+        }
+    }]);
+
+    return PasteModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var RedoModule = function (_Module) {
+    _inherits(RedoModule, _Module);
+
+    function RedoModule(parent, divName) {
+        _classCallCheck(this, RedoModule);
+
+        return _possibleConstructorReturn(this, (RedoModule.__proto__ || Object.getPrototypeOf(RedoModule)).call(this, parent, divName));
+    }
+
+    _createClass(RedoModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(getCurrentContext().designer.history.redoStack.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            getCurrentContext().designer.history.redo();
+        }
+    }]);
+
+    return RedoModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectAllModule = function (_Module) {
+    _inherits(SelectAllModule, _Module);
+
+    function SelectAllModule(parent, divName) {
+        _classCallCheck(this, SelectAllModule);
+
+        return _possibleConstructorReturn(this, (SelectAllModule.__proto__ || Object.getPrototypeOf(SelectAllModule)).call(this, parent, divName));
+    }
+
+    _createClass(SelectAllModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(false);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            selectionTool.selectAll();
+            render();
+        }
+    }]);
+
+    return SelectAllModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var UndoModule = function (_Module) {
+    _inherits(UndoModule, _Module);
+
+    function UndoModule(parent, divName) {
+        _classCallCheck(this, UndoModule);
+
+        return _possibleConstructorReturn(this, (UndoModule.__proto__ || Object.getPrototypeOf(UndoModule)).call(this, parent, divName));
+    }
+
+    _createClass(UndoModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(getCurrentContext().designer.history.undoStack.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            getCurrentContext().designer.history.undo();
+        }
+    }]);
+
+    return UndoModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ItemTool = function (_Tool) {
+    _inherits(ItemTool, _Tool);
+
+    function ItemTool() {
+        _classCallCheck(this, ItemTool);
+
+        var _this = _possibleConstructorReturn(this, (ItemTool.__proto__ || Object.getPrototypeOf(ItemTool)).call(this));
+
+        _this.item = undefined;
+        return _this;
+    }
+
+    _createClass(ItemTool, [{
+        key: "activate",
+        value: function activate(object, context) {
+            // If already active, remove current item
+            if (this.item != undefined) context.remove(this.item);
+
+            _get(ItemTool.prototype.__proto__ || Object.getPrototypeOf(ItemTool.prototype), "activate", this).call(this);
+            this.item = object;
+            context.addObject(this.item);
+            this.onMouseMove();
+        }
+    }, {
+        key: "deactivate",
+        value: function deactivate() {
+            _get(ItemTool.prototype.__proto__ || Object.getPrototypeOf(ItemTool.prototype), "deactivate", this).call(this);
+            this.item = undefined;
+        }
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {
+            this.item.setPos(Input.getWorldMousePos());
+            return true;
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.item.setPos(Input.getWorldMousePos());
+            var action = new PlaceAction(this.item);
+            getCurrentContext().addAction(action);
+            selectionTool.activate();
+            return true;
+        }
+    }]);
+
+    return ItemTool;
+}(Tool);
+
+var itemTool = new ItemTool();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectionTool = function (_Tool) {
+    _inherits(SelectionTool, _Tool);
+
+    function SelectionTool() {
+        _classCallCheck(this, SelectionTool);
+
+        var _this = _possibleConstructorReturn(this, (SelectionTool.__proto__ || Object.getPrototypeOf(SelectionTool)).call(this));
+
+        _this.selections = [];
+        _this.midpoint = V(0, 0);
+        return _this;
+    }
+
+    _createClass(SelectionTool, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code, input) {
+            console.log(code);
+            if (!icdesigner.hidden) return false;
+
+            if (code === A_KEY && Input.getModifierKeyDown()) {
+                this.selectAll();
+                return true;
+            }
+        }
+    }, {
+        key: "onMouseDown",
+        value: function onMouseDown() {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (!icdesigner.hidden) return false;
+
+            // Go through objects backwards since objects on top are in the back
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
+
+                // Check if object was pressed
+                if (obj.contains(worldMousePos)) {
+                    if (obj.isPressable) obj.press();
+                    return true;
+                }
+
+                // Ignore if object's selection box was pressed
+                if (obj.sContains(worldMousePos)) return;
+
+                // Ignore if a port was pressed
+                if (obj.oPortContains(worldMousePos) !== -1 || obj.iPortContains(worldMousePos) !== -1) {
+                    return;
+                }
+            }
+        }
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {}
+    }, {
+        key: "onMouseUp",
+        value: function onMouseUp() {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (!icdesigner.hidden) return false;
+
+            popup.update();
+
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+
+                // Release pressed object
+                if (obj.isPressable && obj.isOn && !Input.isDragging) {
+                    obj.release();
+                    return true;
+                }
+            }
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (!icdesigner.hidden || Input.getIsDragging()) return false;
+
+            // Go through objects backwards since objects on top are in the back
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
+
+                // Check if object's selection box was clicked
+                if (obj.sContains(worldMousePos)) {
+                    if (obj.selected) return false;
+
+                    if (!Input.getShiftKeyDown() && this.selections.length > 0) {
+                        this.deselectAll(true);
+
+                        // Combine deselect and select actions
+                        var deselectAction = getCurrentContext().designer.history.undoStack.pop();
+                        this.select([obj], true);
+                        var selectAction = getCurrentContext().designer.history.undoStack.pop();
+                        var combined = new GroupAction();
+                        if (deselectAction != undefined) combined.add(deselectAction);
+                        combined.add(selectAction);
+                        getCurrentContext().addAction(combined);
+                    } else {
+                        this.select([obj], true);
+                    }
+
+                    return true;
+                }
+
+                // Check if object was clicked
+                if (obj.contains(worldMousePos)) {
+                    obj.click();
+                    return true;
+                }
+            }
+
+            // Didn't click on anything so deselect everything
+            // And add a deselect action
+            if (!Input.getShiftKeyDown() && this.selections.length > 0) {
+                this.deselectAll(true);
+                return true;
+            }
+        }
+    }, {
+        key: "select",
+        value: function select(objects, doAction) {
+            if (objects.length === 0) return;
+
+            var action = new GroupAction();
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                if (obj.selected) continue;
+                obj.selected = true;
+                this.selections.push(obj);
+                this.sendToFront(obj);
+                if (doAction) action.add(new SelectAction(obj));
+            }
+            if (doAction) getCurrentContext().addAction(action);
+            popup.update();
+            this.recalculateMidpoint();
+        }
+    }, {
+        key: "deselect",
+        value: function deselect(objects, doAction) {
+            if (objects.length === 0) return;
+
+            var action = new GroupAction();
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                if (!obj.selected) {
+                    console.error("Can't deselect an unselected object! " + obj);
+                    continue;
+                }
+                obj.selected = false;
+                this.selections.splice(this.selections.indexOf(obj), 1);
+                if (doAction) action.add(new SelectAction(obj, true));
+            }
+            if (doAction) getCurrentContext().addAction(action);
+            popup.update();
+            this.recalculateMidpoint();
+        }
+    }, {
+        key: "selectAll",
+        value: function selectAll() {
+            this.deselectAll(true);
+            this.select(getCurrentContext().getObjects(), true);
+        }
+    }, {
+        key: "deselectAll",
+        value: function deselectAll(doAction) {
+            // Copy selections array because just passing selections
+            // causes it to get mutated mid-loop at causes weirdness
+            var objects = [];
+            for (var i = 0; i < this.selections.length; i++) {
+                objects.push(this.selections[i]);
+            }this.deselect(objects, doAction);
+        }
+    }, {
+        key: "sendToFront",
+        value: function sendToFront(obj) {
+            if (obj instanceof IOObject || obj instanceof Wire) {
+                getCurrentContext().remove(obj);
+                getCurrentContext().add(obj);
+            }
+        }
+    }, {
+        key: "recalculateMidpoint",
+        value: function recalculateMidpoint() {
+            this.midpoint = V(0, 0);
+            for (var i = 0; i < this.selections.length; i++) {
+                this.midpoint.translate(this.selections[i].getPos());
+            }this.midpoint = this.midpoint.scale(1. / this.selections.length);
+        }
+    }, {
+        key: "draw",
+        value: function draw(renderer) {
+            var camera = renderer.getCamera();
+            if (this.selections.length > 0 && !this.drag) {
+                var pos = camera.getScreenPos(this.midpoint);
+                var r = ROTATION_CIRCLE_RADIUS / camera.zoom;
+                var br = ROTATION_CIRCLE_THICKNESS / camera.zoom;
+                TransformController.draw(renderer);
+                renderer.circle(pos.x, pos.y, r, undefined, '#ff0000', br, 0.5);
+            }
+            SelectionBox.draw(renderer);
+        }
+    }]);
+
+    return SelectionTool;
+}(Tool);
+
+var selectionTool = new SelectionTool();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var WiringTool = function (_Tool) {
+    _inherits(WiringTool, _Tool);
+
+    function WiringTool() {
+        _classCallCheck(this, WiringTool);
+
+        var _this = _possibleConstructorReturn(this, (WiringTool.__proto__ || Object.getPrototypeOf(WiringTool)).call(this));
+
+        _this.clickOPort = false;
+        _this.wire = undefined;
+        return _this;
+    }
+
+    _createClass(WiringTool, [{
+        key: "onKeyUp",
+        value: function onKeyUp(code, input) {
+            if (code === ESC_KEY) {
+                this.removeWire();
+                selectionTool.activate();
+                render();
+            }
+        }
+    }, {
+        key: "activate",
+        value: function activate(object, context) {
+            _get(WiringTool.prototype.__proto__ || Object.getPrototypeOf(WiringTool.prototype), "activate", this).call(this);
+
+            console.log(object);
+
+            this.wire = new Wire(context);
+            this.clickOPort = object instanceof OPort;
+            var success;
+            if (this.clickOPort) success = object.connect(this.wire);else success = this.wire.connect(object);
+            if (success) {
+                this.onMouseMove();
+                context.addWire(this.wire);
+            } else {
+                // Illegal connection (ex. two inputs to IPort)
+                selectionTool.activate();
+            }
+        }
+    }, {
+        key: "deactivate",
+        value: function deactivate() {
+            _get(WiringTool.prototype.__proto__ || Object.getPrototypeOf(WiringTool.prototype), "deactivate", this).call(this);
+
+            this.wire = undefined;
+        }
+    }, {
+        key: "removeWire",
+        value: function removeWire() {
+            getCurrentContext().remove(this.wire);
+            if (this.clickOPort) this.wire.input.disconnect(this.wire);else this.wire.disconnect();
+        }
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {
+            if (this.clickOPort) this.wire.curve.update(this.wire.curve.p1, Input.getWorldMousePos(), this.wire.curve.c1, Input.getWorldMousePos());else this.wire.curve.update(Input.getWorldMousePos(), this.wire.curve.p2, Input.getWorldMousePos(), this.wire.curve.c2);
+            return true;
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            for (var i = 0; i < objects.length; i++) {
+                var ii = -1;
+                if (this.clickOPort && (ii = objects[i].iPortContains(worldMousePos)) !== -1) {
+                    if (!this.wire.connect(objects[i].inputs[ii])) this.removeWire();
+                }
+                if (!this.clickOPort && (ii = objects[i].oPortContains(worldMousePos)) !== -1) {
+                    if (!objects[i].outputs[ii].connect(this.wire)) this.removeWire();
+                }
+                if (ii !== -1) {
+                    var action = new PlaceWireAction(this.wire);
+                    getCurrentContext().addAction(action);
+
+                    selectionTool.activate();
+                    return true;
+                }
+            }
+
+            this.removeWire();
+            selectionTool.activate();
+            return true;
+        }
+    }]);
+
+    return WiringTool;
+}(Tool);
+
+var wiringTool = new WiringTool();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Action = function () {
+    function Action() {
+        _classCallCheck(this, Action);
+
+        this.context = getCurrentContext();
+        // Anytime an action is performed, user should need to save
+        saved = false;
+    }
+
+    _createClass(Action, [{
+        key: "undo",
+        value: function undo() {}
+    }, {
+        key: "redo",
+        value: function redo() {}
+    }]);
+
+    return Action;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var DeleteAction = function (_Action) {
+    _inherits(DeleteAction, _Action);
+
+    function DeleteAction(obj, oldinput, oldconnection) {
+        _classCallCheck(this, DeleteAction);
+
+        var _this = _possibleConstructorReturn(this, (DeleteAction.__proto__ || Object.getPrototypeOf(DeleteAction)).call(this));
+
+        _this.obj = obj;
+        _this.oldinput = oldinput;
+        _this.oldconnection = oldconnection;
+        return _this;
+    }
+
+    _createClass(DeleteAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.add(this.obj);
+            if (this.oldinput != undefined) this.oldinput.connect(this.obj);
+            if (this.oldconnection != undefined) this.obj.connect(this.oldconnection);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.obj.remove();
+        }
+    }]);
+
+    return DeleteAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var GroupAction = function (_Action) {
+    _inherits(GroupAction, _Action);
+
+    function GroupAction() {
+        _classCallCheck(this, GroupAction);
+
+        var _this = _possibleConstructorReturn(this, (GroupAction.__proto__ || Object.getPrototypeOf(GroupAction)).call(this));
+
+        _this.actions = [];
+        return _this;
+    }
+
+    _createClass(GroupAction, [{
+        key: "add",
+        value: function add(action) {
+            this.actions.push(action);
+        }
+    }, {
+        key: "undo",
+        value: function undo() {
+            for (var i = this.actions.length - 1; i >= 0; i--) {
+                this.actions[i].undo();
+            }
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            for (var i = 0; i < this.actions.length; i++) {
+                this.actions[i].redo();
+            }
+        }
+    }]);
+
+    return GroupAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PlaceAction = function (_Action) {
+    _inherits(PlaceAction, _Action);
+
+    function PlaceAction(obj) {
+        _classCallCheck(this, PlaceAction);
+
+        var _this = _possibleConstructorReturn(this, (PlaceAction.__proto__ || Object.getPrototypeOf(PlaceAction)).call(this));
+
+        _this.obj = obj;
+        return _this;
+    }
+
+    _createClass(PlaceAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.obj);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.addObject(this.obj);
+        }
+    }]);
+
+    return PlaceAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PlaceWireAction = function (_Action) {
+    _inherits(PlaceWireAction, _Action);
+
+    function PlaceWireAction(wire) {
+        _classCallCheck(this, PlaceWireAction);
+
+        var _this = _possibleConstructorReturn(this, (PlaceWireAction.__proto__ || Object.getPrototypeOf(PlaceWireAction)).call(this));
+
+        _this.wire = wire;
+        _this.input = _this.wire.input;
+        _this.connection = _this.wire.connection;
+        return _this;
+    }
+
+    _createClass(PlaceWireAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.wire);
+            this.wire.disconnect();
+            this.wire.input.disconnect(this.wire);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.add(this.wire);
+            this.wire.connect(this.connection);
+            this.input.connect(this.wire);
+        }
+    }]);
+
+    return PlaceWireAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectAction = function (_Action) {
+    _inherits(SelectAction, _Action);
+
+    function SelectAction(obj, flip) {
+        _classCallCheck(this, SelectAction);
+
+        var _this = _possibleConstructorReturn(this, (SelectAction.__proto__ || Object.getPrototypeOf(SelectAction)).call(this));
+
+        _this.obj = obj;
+        _this.flip = flip;
+        return _this;
+    }
+
+    _createClass(SelectAction, [{
+        key: "undo",
+        value: function undo() {
+            if (this.flip) this.reselect();else this.deselect();
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            if (this.flip) this.deselect();else this.reselect();
+        }
+    }, {
+        key: "reselect",
+        value: function reselect() {
+            selectionTool.select([this.obj]);
+        }
+    }, {
+        key: "deselect",
+        value: function deselect() {
+            selectionTool.deselect([this.obj]);
+        }
+    }]);
+
+    return SelectAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SplitWireAction = function (_Action) {
+    _inherits(SplitWireAction, _Action);
+
+    function SplitWireAction(wire) {
+        _classCallCheck(this, SplitWireAction);
+
+        var _this = _possibleConstructorReturn(this, (SplitWireAction.__proto__ || Object.getPrototypeOf(SplitWireAction)).call(this));
+
+        _this.wireport = wire.connection;
+        _this.wire = wire;
+        _this.newwire = _this.wireport.connection;
+        _this.connection = _this.newwire.connection;
+        return _this;
+    }
+
+    _createClass(SplitWireAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.wireport);
+            this.context.remove(this.newwire);
+
+            this.wire.disconnect();
+            this.newwire.disconnect();
+
+            this.wire.connect(this.connection);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.add(this.wireport);
+            this.context.add(this.newwire);
+
+            this.wire.disconnect();
+
+            this.wire.connect(this.wireport);
+            this.newwire.connect(this.connection);
+        }
+    }]);
+
+    return SplitWireAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var TransformAction = function (_Action) {
+    _inherits(TransformAction, _Action);
+
+    function TransformAction(obj, t0, t1) {
+        _classCallCheck(this, TransformAction);
+
+        var _this = _possibleConstructorReturn(this, (TransformAction.__proto__ || Object.getPrototypeOf(TransformAction)).call(this));
+
+        _this.obj = obj;
+        _this.t0 = t0;
+        _this.t1 = t1;
+        return _this;
+    }
+
+    _createClass(TransformAction, [{
+        key: "undo",
+        value: function undo() {
+            this.obj.setTransform(this.t0);
+            this.updatePopup();
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.obj.setTransform(this.t1);
+            this.updatePopup();
+        }
+    }, {
+        key: "updatePopup",
+        value: function updatePopup() {
+            if (this.obj.selected) {
+                selectionTool.recalculateMidpoint();
+                popup.onMove();
+            }
+        }
+    }]);
+
+    return TransformAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var BezierCurve = function () {
+    function BezierCurve(p1, p2, c1, c2) {
+        _classCallCheck(this, BezierCurve);
+
+        this.p1 = V(p1.x, p1.y);
+        this.p2 = V(p2.x, p2.y);
+        this.c1 = V(c1.x, c1.y);
+        this.c2 = V(c2.x, c2.y);
+        this.dirty = true;
+        this.boundingBox = new Transform(0, 0, 0, getCurrentContext().getCamera());
+    }
+
+    _createClass(BezierCurve, [{
+        key: "update",
+        value: function update(p1, p2, c1, c2) {
+            this.p1.x = p1.x;
+            this.p1.y = p1.y;
+            this.p2.x = p2.x;
+            this.p2.y = p2.y;
+            this.c1.x = c1.x;
+            this.c1.y = c1.y;
+            this.c2.x = c2.x;
+            this.c2.y = c2.y;
+        }
+    }, {
+        key: "updateBoundingBox",
+        value: function updateBoundingBox() {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            var min = V(0, 0);
+            var max = V(0, 0);
+            var end1 = this.getPos(0);
+            var end2 = this.getPos(1);
+            var a = this.c1.sub(this.c2).scale(3).add(this.p2.sub(this.p1));
+            var b = this.p1.sub(this.c1.scale(2).add(this.c2)).scale(2);
+            var c = this.c1.sub(this.p1);
+
+            var discriminant1 = b.y * b.y - 4 * a.y * c.y;
+            discriminant1 = discriminant1 >= 0 ? Math.sqrt(discriminant1) : -1;
+            var t1 = discriminant1 !== -1 ? clamp((-b.y + discriminant1) / (2 * a.y), 0, 1) : 0;
+            var t2 = discriminant1 !== -1 ? clamp((-b.y - discriminant1) / (2 * a.y), 0, 1) : 0;
+            max.y = Math.max(this.getY(t1), this.getY(t2), end1.y, end2.y);
+            min.y = Math.min(this.getY(t1), this.getY(t2), end1.y, end2.y);
+
+            var discriminant2 = b.x * b.x - 4 * a.x * c.x;
+            discriminant2 = discriminant2 >= 0 ? Math.sqrt(discriminant2) : -1;
+            var t3 = discriminant2 !== -1 ? clamp((-b.x + discriminant2) / (2 * a.x), 0, 1) : 0;
+            var t4 = discriminant2 !== -1 ? clamp((-b.x - discriminant2) / (2 * a.x), 0, 1) : 0;
+            max.x = Math.max(this.getX(t1), this.getX(t2), end1.x, end2.x);
+            min.x = Math.min(this.getX(t1), this.getX(t2), end1.x, end2.x);
+
+            this.boundingBox.setSize(V(max.x - min.x, max.y - min.y));
+            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
+        }
+    }, {
+        key: "draw",
+        value: function draw(style, size, renderer) {
+            var camera = renderer.parent.camera;
+
+            var p1 = camera.getScreenPos(this.p1);
+            var p2 = camera.getScreenPos(this.p2);
+            var c1 = camera.getScreenPos(this.c1);
+            var c2 = camera.getScreenPos(this.c2);
+
+            renderer.curve(p1.x, p1.y, p2.x, p2.y, c1.x, c1.y, c2.x, c2.y, style, size);
+        }
+    }, {
+        key: "getX",
+        value: function getX(t) {
+            var it = 1 - t;
+            return this.p1.x * it * it * it + 3 * this.c1.x * t * it * it + 3 * this.c2.x * t * t * it + this.p2.x * t * t * t;
+        }
+    }, {
+        key: "getY",
+        value: function getY(t) {
+            var it = 1 - t;
+            return this.p1.y * it * it * it + 3 * this.c1.y * t * it * it + 3 * this.c2.y * t * t * it + this.p2.y * t * t * t;
+        }
+    }, {
+        key: "getPos",
+        value: function getPos(t) {
+            return V(this.getX(t), this.getY(t));
+        }
+    }, {
+        key: "getDX",
+        value: function getDX(t) {
+            var it = 1 - t;
+            return -3 * this.p1.x * it * it + 3 * this.c1.x * it * (1 - 3 * t) + 3 * this.c2.x * t * (2 - 3 * t) + 3 * this.p2.x * t * t;
+        }
+    }, {
+        key: "getDY",
+        value: function getDY(t) {
+            var it = 1 - t;
+            return -3 * this.p1.y * it * it + 3 * this.c1.y * it * (1 - 3 * t) + 3 * this.c2.y * t * (2 - 3 * t) + 3 * this.p2.y * t * t;
+        }
+    }, {
+        key: "getVel",
+        value: function getVel(t) {
+            return V(this.getDX(t), this.getDY(t));
+        }
+    }, {
+        key: "getDDX",
+        value: function getDDX(t) {
+            var m = -this.p1.x + 3 * this.c1.x - 3 * this.c2.x + this.p2.x;
+            var b = this.p1.x - 2 * this.c1.x + this.c2.x;
+            return 6 * (m * t + b);
+        }
+    }, {
+        key: "getDDY",
+        value: function getDDY(t) {
+            var m = -this.p1.y + 3 * this.c1.y - 3 * this.c2.y + this.p2.y;
+            var b = this.p1.y - 2 * this.c1.y + this.c2.y;
+            return 6 * (m * t + b);
+        }
+    }, {
+        key: "getDist",
+        value: function getDist(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+    }, {
+        key: "getDist2",
+        value: function getDist2(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return dx * dx + dy * dy;
+        }
+    }, {
+        key: "getDistDenominator",
+        value: function getDistDenominator(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return dx * dx + dy * dy;
+        }
+    }, {
+        key: "getDistDenominatorDerivative",
+        value: function getDistDenominatorDerivative(t, mx, my) {
+            return 2 * (this.getX(t) - mx) * this.getDX(t) + 2 * (this.getY(t) - my) * this.getDY(t);
+        }
+    }, {
+        key: "getDistNumerator",
+        value: function getDistNumerator(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return this.getDX(t) * dx + this.getDY(t) * dy;
+        }
+    }, {
+        key: "getDistNumeratorDerivative",
+        value: function getDistNumeratorDerivative(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            var dbx = this.getDX(t);
+            var dby = this.getDY(t);
+            return dbx * dbx + dx * this.getDDX(t) + dby * dby + dy * this.getDDY(t);
+        }
+    }, {
+        key: "getNearestT",
+        value: function getNearestT(mx, my) {
+            var _this = this;
+
+            var minDist = 1e20;
+            var t0 = -1;
+            for (var tt = 0; tt <= 1.0; tt += 1.0 / WIRE_DIST_ITERATIONS) {
+                var dist = this.getDist(tt, mx, my);
+                if (dist < minDist) {
+                    t0 = tt;
+                    minDist = dist;
+                }
+            }
+
+            // Newton's method to find parameter for when slope is undefined AKA denominator function = 0
+            var t1 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
+                return _this.getDistDenominator(t, x, y);
+            }, function (t, x, y) {
+                return _this.getDistDenominatorDerivative(t, x, y);
+            });
+            if (this.getDist2(t1, mx, my) < WIRE_DIST_THRESHOLD2) return t1;
+
+            // Newton's method to find parameter for when slope is 0 AKA numerator function = 0
+            var t2 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
+                return _this.getDistNumerator(t, x, y);
+            }, function (t, x, y) {
+                return _this.getDistNumeratorDerivative(t, x, y);
+            });
+            if (this.getDist2(t2, mx, my) < WIRE_DIST_THRESHOLD2) return t2;
+
+            return -1;
+        }
+    }, {
+        key: "getBoundingBox",
+        value: function getBoundingBox() {
+            this.updateBoundingBox();
+            return this.boundingBox;
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return new BezierCurve(this.p1.copy(), this.p2.copy(), this.c1.copy(), this.c2.copy());
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var bezierNode = createChildNode(node, "bezier");
+            createTextElement(bezierNode, "p1x", this.p1.x);
+            createTextElement(bezierNode, "p1y", this.p1.y);
+            createTextElement(bezierNode, "p2x", this.p2.x);
+            createTextElement(bezierNode, "p2y", this.p2.y);
+            createTextElement(bezierNode, "c1x", this.c1.x);
+            createTextElement(bezierNode, "c1y", this.c1.y);
+            createTextElement(bezierNode, "c2x", this.c2.x);
+            createTextElement(bezierNode, "c2y", this.c2.y);
+        }
+    }, {
+        key: "load",
+        value: function load(node) {
+            var p1 = V(getFloatValue(getChildNode(node, "p1x")), getFloatValue(getChildNode(node, "p1y")));
+            var p2 = V(getFloatValue(getChildNode(node, "p2x")), getFloatValue(getChildNode(node, "p2y")));
+            var c1 = V(getFloatValue(getChildNode(node, "c1x")), getFloatValue(getChildNode(node, "c1y")));
+            var c2 = V(getFloatValue(getChildNode(node, "c2x")), getFloatValue(getChildNode(node, "c2y")));
+            this.update(p1, p2, c1, c2);
+        }
+    }]);
+
+    return BezierCurve;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Matrix2x3 = function () {
+    function Matrix2x3(other) {
+        _classCallCheck(this, Matrix2x3);
+
+        this.mat = [];
+        this.identity();
+        if (other instanceof Matrix2x3) {
+            for (var i = 0; i < 2 * 3; i++) {
+                this.mat[i] = other.mat[i];
+            }
+        }
+    }
+
+    _createClass(Matrix2x3, [{
+        key: "zero",
+        value: function zero() {
+            for (var i = 0; i < 2 * 3; i++) {
+                this.mat[i] = 0;
+            }return this;
+        }
+    }, {
+        key: "identity",
+        value: function identity() {
+            this.zero();
+
+            this.mat[0] = 1.0;
+            this.mat[3] = 1.0;
+
+            return this;
+        }
+    }, {
+        key: "mul",
+        value: function mul(v) {
+            var result = V(0, 0);
+            result.x = this.mat[0] * v.x + this.mat[2] * v.y + this.mat[4];
+            result.y = this.mat[1] * v.x + this.mat[3] * v.y + this.mat[5];
+            return result;
+        }
+    }, {
+        key: "mult",
+        value: function mult(m) {
+            var result = new Matrix2x3();
+            result.mat[0] = this.mat[0] * m.mat[0] + this.mat[2] * m.mat[1];
+            result.mat[1] = this.mat[1] * m.mat[0] + this.mat[3] * m.mat[1];
+            result.mat[2] = this.mat[0] * m.mat[2] + this.mat[2] * m.mat[3];
+            result.mat[3] = this.mat[1] * m.mat[2] + this.mat[3] * m.mat[3];
+            result.mat[4] = this.mat[0] * m.mat[4] + this.mat[2] * m.mat[5] + this.mat[4];
+            result.mat[5] = this.mat[1] * m.mat[4] + this.mat[3] * m.mat[5] + this.mat[5];
+            return result;
+        }
+    }, {
+        key: "translate",
+        value: function translate(v) {
+            this.mat[4] += this.mat[0] * v.x + this.mat[2] * v.y;
+            this.mat[5] += this.mat[1] * v.x + this.mat[3] * v.y;
+        }
+    }, {
+        key: "rotate",
+        value: function rotate(theta) {
+            var c = Math.cos(theta);
+            var s = Math.sin(theta);
+            var m11 = this.mat[0] * c + this.mat[2] * s;
+            var m12 = this.mat[1] * c + this.mat[3] * s;
+            var m21 = this.mat[0] * -s + this.mat[2] * c;
+            var m22 = this.mat[1] * -s + this.mat[3] * c;
+            this.mat[0] = m11;
+            this.mat[1] = m12;
+            this.mat[2] = m21;
+            this.mat[3] = m22;
+        }
+    }, {
+        key: "scale",
+        value: function scale(s) {
+            this.mat[0] *= s.x;
+            this.mat[1] *= s.x;
+            this.mat[2] *= s.y;
+            this.mat[3] *= s.y;
+        }
+    }, {
+        key: "inverse",
+        value: function inverse() {
+            var inv = new Array(3 * 2);
+            var det;
+
+            inv[0] = this.mat[3];
+            inv[1] = -this.mat[1];
+            inv[2] = -this.mat[2];
+            inv[3] = this.mat[0];
+            inv[4] = this.mat[2] * this.mat[5] - this.mat[4] * this.mat[3];
+            inv[5] = this.mat[4] * this.mat[1] - this.mat[0] * this.mat[5];
+
+            det = this.mat[0] * this.mat[3] - this.mat[1] * this.mat[2];
+
+            if (det == 0) return undefined;
+
+            det = 1.0 / det;
+
+            var m = new Matrix2x3();
+            for (var i = 0; i < 2 * 3; i++) {
+                m.mat[i] = inv[i] * det;
+            }return m;
+        }
+    }, {
+        key: "print",
+        value: function print() {
+            console.log("[" + this.mat[0].toFixed(3) + ", " + this.mat[2].toFixed(3) + ", " + this.mat[4].toFixed(3) + "]\n" + "[" + this.mat[1].toFixed(3) + ", " + this.mat[3].toFixed(3) + ", " + this.mat[5].toFixed(3) + "]");
+        }
+    }]);
+
+    return Matrix2x3;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Transform = function () {
+    function Transform(pos, size, angle, camera) {
+        _classCallCheck(this, Transform);
+
+        this.parent = undefined;
+        this.pos = V(pos.x, pos.y);
+        this.size = V(size.x, size.y);
+        this.angle = angle;
+        this.scale = V(1, 1);
+        this.corners = [];
+        this.localCorners = [];
+        this.camera = camera;
+        this.dirty = true;
+        this.dirtySize = true;
+        this.dirtyCorners = true;
+        this.updateMatrix();
+    }
+
+    _createClass(Transform, [{
+        key: "updateMatrix",
+        value: function updateMatrix(c) {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            this.matrix = new Matrix2x3();
+            this.matrix.translate(this.pos);
+            this.matrix.rotate(this.angle);
+            this.matrix.scale(this.scale);
+
+            if (this.parent != undefined) this.matrix = this.parent.getMatrix().mult(this.matrix);
+
+            this.inverse = this.matrix.inverse();
+        }
+    }, {
+        key: "updateSize",
+        value: function updateSize() {
+            if (!this.dirtySize) return;
+            this.dirtySize = false;
+
+            this.localCorners = [this.size.scale(V(-0.5, 0.5)), this.size.scale(V(0.5, 0.5)), this.size.scale(V(0.5, -0.5)), this.size.scale(V(-0.5, -0.5))];
+
+            this.radius = Math.sqrt(this.size.x * this.size.x + this.size.y * this.size.y) / 2;
+        }
+    }, {
+        key: "updateCorners",
+        value: function updateCorners() {
+            if (!this.dirtyCorners) return;
+            this.dirtyCorners = false;
+
+            var corners = this.getLocalCorners();
+            for (var i = 0; i < 4; i++) {
+                this.corners[i] = this.toWorldSpace(corners[i]);
+            }
+        }
+    }, {
+        key: "transformCtx",
+        value: function transformCtx(ctx) {
+            this.updateMatrix();
+            var m = new Matrix2x3(this.matrix);
+            var v = this.camera.getScreenPos(V(m.mat[4], m.mat[5]));
+            m.mat[4] = v.x, m.mat[5] = v.y;
+            m.scale(V(1 / this.camera.zoom, 1 / this.camera.zoom));
+            ctx.setTransform(m.mat[0], m.mat[1], m.mat[2], m.mat[3], m.mat[4], m.mat[5]);
+        }
+    }, {
+        key: "rotateAbout",
+        value: function rotateAbout(a, c) {
+            this.setAngle(a);
+            this.setPos(this.pos.sub(c));
+            var cos = Math.cos(a),
+                sin = Math.sin(a);
+            var xx = this.pos.x * cos - this.pos.y * sin;
+            var yy = this.pos.y * cos + this.pos.x * sin;
+            this.setPos(V(xx, yy).add(c));
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setParent",
+        value: function setParent(t) {
+            this.parent = t;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setCamera",
+        value: function setCamera(c) {
+            this.camera = c;
+        }
+    }, {
+        key: "setPos",
+        value: function setPos(p) {
+            this.pos.x = p.x;
+            this.pos.y = p.y;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setAngle",
+        value: function setAngle(a) {
+            this.angle = a;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setScale",
+        value: function setScale(s) {
+            this.scale.x = s.x;
+            this.scale.y = s.y;
+            this.dirty = true;
+        }
+    }, {
+        key: "setSize",
+        value: function setSize(s) {
+            this.size.x = s.x;
+            this.size.y = s.y;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setWidth",
+        value: function setWidth(w) {
+            this.size.x = w;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setHeight",
+        value: function setHeight(h) {
+            this.size.y = h;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "toLocalSpace",
+        value: function toLocalSpace(v) {
+            // v must be in world coords
+            return this.getInverseMatrix().mul(v);
+        }
+    }, {
+        key: "toWorldSpace",
+        value: function toWorldSpace(v) {
+            // v must be in local coords
+            return this.getMatrix().mul(v);
+        }
+    }, {
+        key: "getPos",
+        value: function getPos() {
+            return V(this.pos.x, this.pos.y);
+        }
+    }, {
+        key: "getAngle",
+        value: function getAngle() {
+            return this.angle;
+        }
+    }, {
+        key: "getScale",
+        value: function getScale() {
+            return V(this.scale.x, this.scale.y);
+        }
+    }, {
+        key: "getSize",
+        value: function getSize() {
+            return this.size;
+        }
+    }, {
+        key: "getRadius",
+        value: function getRadius() {
+            this.updateSize();
+            return this.radius;
+        }
+    }, {
+        key: "getMatrix",
+        value: function getMatrix() {
+            this.updateMatrix();
+            return this.matrix;
+        }
+    }, {
+        key: "getInverseMatrix",
+        value: function getInverseMatrix() {
+            this.updateMatrix();
+            return this.inverse;
+        }
+    }, {
+        key: "getBottomLeft",
+        value: function getBottomLeft() {
+            this.updateCorners();
+            return this.corners[0];
+        }
+    }, {
+        key: "getBottomRight",
+        value: function getBottomRight() {
+            this.updateCorners();
+            return this.corners[1];
+        }
+    }, {
+        key: "getTopRight",
+        value: function getTopRight() {
+            this.updateCorners();
+            return this.corners[2];
+        }
+    }, {
+        key: "getTopLeft",
+        value: function getTopLeft() {
+            this.updateCorners();
+            return this.corners[3];
+        }
+    }, {
+        key: "getCorners",
+        value: function getCorners() {
+            this.updateCorners();
+            return this.corners;
+        }
+    }, {
+        key: "getLocalCorners",
+        value: function getLocalCorners() {
+            this.updateSize();
+            return this.localCorners;
+        }
+    }, {
+        key: "equals",
+        value: function equals(other) {
+            if (!(other instanceof Transform)) return false;
+
+            var m1 = this.getMatrix().mat;
+            var m2 = other.getMatrix().mat;
+            for (var i = 0; i < m1.length; i++) {
+                if (m1[i] !== m2[i]) return false;
+            }
+            return true;
+        }
+    }, {
+        key: "print",
+        value: function print() {
+            this.updateMatrix();
+            this.matrix.print();
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            var trans = new Transform(this.pos.copy(), this.size.copy(), this.angle, this.camera);
+            trans.scale = this.scale.copy();
+            trans.dirty = true;
+            return trans;
+        }
+    }]);
+
+    return Transform;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Vector = function () {
+    function Vector(x, y) {
+        _classCallCheck(this, Vector);
+
+        this.set(x, y);
+    }
+
+    _createClass(Vector, [{
+        key: "set",
+        value: function set(x, y) {
+            if (x instanceof Vector) {
+                this.x = x.x ? x.x : 0;
+                this.y = x.y ? x.y : 0;
+            } else {
+                this.x = x ? x : 0;
+                this.y = y ? y : 0;
+            }
+        }
+    }, {
+        key: "translate",
+        value: function translate(dx, dy) {
+            if (dx instanceof Vector) this.set(this.add(dx));else this.set(this.x + dx, this.y + dy);
+        }
+    }, {
+        key: "add",
+        value: function add(x, y) {
+            if (x instanceof Vector) return new Vector(this.x + x.x, this.y + x.y);else return new Vector(this.x + x, this.y + y);
+        }
+    }, {
+        key: "sub",
+        value: function sub(x, y) {
+            if (x instanceof Vector) return new Vector(this.x - x.x, this.y - x.y);else return new Vector(this.x - x, this.y - y);
+        }
+    }, {
+        key: "scale",
+        value: function scale(a) {
+            if (a instanceof Vector) return new Vector(a.x * this.x, a.y * this.y);else return new Vector(a * this.x, a * this.y);
+        }
+    }, {
+        key: "normalize",
+        value: function normalize() {
+            var len = this.len();
+            if (len === 0) {
+                return new Vector(0, 0);
+            } else {
+                var invLen = 1 / len;
+                return new Vector(this.x * invLen, this.y * invLen);
+            }
+        }
+    }, {
+        key: "len",
+        value: function len() {
+            return Math.sqrt(this.x * this.x + this.y * this.y);
+        }
+    }, {
+        key: "len2",
+        value: function len2() {
+            return this.x * this.x + this.y * this.y;
+        }
+    }, {
+        key: "distanceTo",
+        value: function distanceTo(v) {
+            return this.sub(v).len();
+        }
+    }, {
+        key: "dot",
+        value: function dot(v) {
+            return this.x * v.x + this.y * v.y;
+        }
+    }, {
+        key: "project",
+        value: function project(v) {
+            return this.scale(v.dot(this) / this.len2());
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return new Vector(this.x, this.y);
+        }
+    }]);
+
+    return Vector;
+}();
+
+// Utility method for a new Vector
+
+
+function V(x, y) {
+    return new Vector(x, y);
+}
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Module = function () {
+    function Module(parent, divName, divTextName) {
+        var _this = this;
+
+        _classCallCheck(this, Module);
+
+        this.parent = parent;
+        this.div = document.getElementById(divName);
+        this.divtext = divTextName ? document.getElementById(divTextName) : undefined;
+        this.div.oninput = function () {
+            render();_this.onChange();
+        };
+        this.div.onclick = function () {
+            return _this.onClick();
+        };
+        this.div.onfocus = function () {
+            return _this.onFocus();
+        };
+        this.div.onblur = function () {
+            return _this.onBlur();
+        };
+    }
+
+    _createClass(Module, [{
+        key: "blur",
+        value: function blur() {
+            this.div.blur();
+        }
+    }, {
+        key: "onShow",
+        value: function onShow() {}
+    }, {
+        key: "setValue",
+        value: function setValue(val) {
+            this.div.value = val;
+        }
+    }, {
+        key: "setPlaceholder",
+        value: function setPlaceholder(val) {
+            this.div.placeholder = val;
+        }
+    }, {
+        key: "setVisibility",
+        value: function setVisibility(val) {
+            this.div.style.display = val;
+            if (this.divtext != undefined) this.divtext.style.display = val;
+        }
+    }, {
+        key: "setDisabled",
+        value: function setDisabled(val) {
+            this.div.disabled = val;
+        }
+    }, {
+        key: "getValue",
+        value: function getValue() {
+            return this.div.value;
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {}
+    }, {
+        key: "onClick",
+        value: function onClick() {}
+    }, {
+        key: "onFocus",
+        value: function onFocus() {
+            this.parent.focused = true;
+        }
+    }, {
+        key: "onBlur",
+        value: function onBlur() {
+            this.parent.focused = false;
+        }
+    }]);
+
+    return Module;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Popup = function () {
+    function Popup(divName) {
+        var _this = this;
+
+        _classCallCheck(this, Popup);
+
+        this.div = document.getElementById(divName);
+        this.div.addEventListener('keydown', function (e) {
+            _this.onKeyDown(e.keyCode);
+        }, false);
+        this.div.addEventListener('keyup', function (e) {
+            _this.onKeyUp(e.keyCode);
+        }, false);
+        this.div.style.position = "absolute";
+        this.focused = false;
+
+        this.modules = [];
+
+        this.setPos(V(0, 0));
+        this.hide();
+    }
+
+    _createClass(Popup, [{
+        key: 'onKeyDown',
+        value: function onKeyDown(code) {}
+    }, {
+        key: 'onKeyUp',
+        value: function onKeyUp(code) {}
+    }, {
+        key: 'add',
+        value: function add(m) {
+            this.modules.push(m);
+        }
+    }, {
+        key: 'update',
+        value: function update() {
+            this.onShow();
+        }
+    }, {
+        key: 'onShow',
+        value: function onShow() {
+            for (var i = 0; i < this.modules.length; i++) {
+                this.modules[i].onShow();
+            }
+        }
+    }, {
+        key: 'blur',
+        value: function blur() {
+            for (var i = 0; i < this.modules.length; i++) {
+                this.modules[i].blur();
+            }
+        }
+    }, {
+        key: 'show',
+        value: function show() {
+            this.hidden = false;
+            this.div.style.visibility = "visible";
+            this.div.focus();
+            this.onShow();
+        }
+    }, {
+        key: 'hide',
+        value: function hide() {
+            this.hidden = true;
+            this.div.style.visibility = "hidden";
+            this.div.blur();
+        }
+    }, {
+        key: 'setPos',
+        value: function setPos(v) {
+            this.pos = V(v.x, v.y);
+            this.clamp();
+
+            this.div.style.left = this.pos.x + "px";
+            this.div.style.top = this.pos.y + "px";
+        }
+    }, {
+        key: 'clamp',
+        value: function clamp() {
+            this.pos.x = Math.max(Math.min(this.pos.x, window.innerWidth - this.div.clientWidth - 1), ItemNavController.isOpen ? ITEMNAV_WIDTH + 5 : 5);
+            this.pos.y = Math.max(Math.min(this.pos.y, window.innerHeight - this.div.clientHeight - 1), (header ? header.clientHeight : 0) + 5);
+        }
+    }]);
+
+    return Popup;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Gate = function (_IOObject) {
+    _inherits(Gate, _IOObject);
+
+    function Gate(context, not, x, y, img) {
+        _classCallCheck(this, Gate);
+
+        var _this = _possibleConstructorReturn(this, (Gate.__proto__ || Object.getPrototypeOf(Gate)).call(this, context, x, y, DEFAULT_SIZE * (img != undefined ? img.ratio : 1), DEFAULT_SIZE, img, false, 512, 512));
+
+        _this._not = not ? true : false;
+        _this.name = _this.getDisplayName();
+
+        _this.setInputAmount(2);
+        return _this;
+    }
+
+    _createClass(Gate, [{
+        key: "activate",
+        value: function activate(on, i) {
+            _get(Gate.prototype.__proto__ || Object.getPrototypeOf(Gate.prototype), "activate", this).call(this, this.not ? !on : on, i);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Gate.prototype.__proto__ || Object.getPrototypeOf(Gate.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+            if (this.not) {
+                var l = this.transform.size.x / 2 + 5;
+                renderer.circle(l, 0, 5, this.getCol() == undefined ? '#fff' : this.getCol(), this.getBorderColor(), 2);
+            }
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Gate";
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            var copy = _get(Gate.prototype.__proto__ || Object.getPrototypeOf(Gate.prototype), "copy", this).call(this);
+            copy.not = this.not;
+            return copy;
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var gateNode = _get(Gate.prototype.__proto__ || Object.getPrototypeOf(Gate.prototype), "writeTo", this).call(this, node);
+            createTextElement(gateNode, "not", this.not);
+            createTextElement(gateNode, "inputcount", this.getInputAmount());
+            return gateNode;
+        }
+    }, {
+        key: "load",
+        value: function load(node) {
+            _get(Gate.prototype.__proto__ || Object.getPrototypeOf(Gate.prototype), "load", this).call(this, node);
+            var not = getBooleanValue(getChildNode(node, "not"));
+            var inputCount = getIntValue(getChildNode(node, "inputcount"), 1);
+            this.not = not;
+            this.setInputAmount(inputCount);
+            return this;
+        }
+    }, {
+        key: "not",
+        set: function set(value) {
+            this._not = value;
+            if (value) this.outputs[0].isOn = !this.isOn;
+        },
+        get: function get() {
+            return this._not;
+        }
+    }]);
+
+    return Gate;
+}(IOObject);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SRFlipFlop = function (_Gate) {
+    _inherits(SRFlipFlop, _Gate);
+
+    function SRFlipFlop(context, x, y) {
+        _classCallCheck(this, SRFlipFlop);
+
+        var _this = _possibleConstructorReturn(this, (SRFlipFlop.__proto__ || Object.getPrototypeOf(SRFlipFlop)).call(this, context, false, x, y, undefined));
+
+        _this.noChange = true;
+        _this.setInputAmount(3);
+        _this.setOutputAmount(2);
+        _this.transform.setSize(_this.transform.size.scale(1.5));
+        return _this;
+    }
+
+    _createClass(SRFlipFlop, [{
+        key: "onTransformChange",
+        value: function onTransformChange() {
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE));
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "onTransformChange", this).call(this);
+            this.transform.setSize(V(DEFAULT_SIZE * 1.5, DEFAULT_SIZE * 1.5));
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var on = this.outputs[0].isOn;
+
+            var set = this.inputs[0].isOn;
+            var clock = this.inputs[1].isOn;
+            var reset = this.inputs[2].isOn;
+            if (clock) {
+                if (set && reset) {
+                    // undefined behavior
+                } else if (set) {
+                    on = true;
+                } else if (reset) {
+                    on = false;
+                }
+            }
+
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, on, 0);
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, !on, 1);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "SR Flip Flop";
+        }
+    }]);
+
+    return SRFlipFlop;
+}(Gate);
+
+SRFlipFlop.getXMLName = function () {
+    return "srff";
+};
+Importer.types.push(SRFlipFlop);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+// key board input inputs
+
+var Button = function (_IOObject) {
+    _inherits(Button, _IOObject);
+
+    function Button(context, x, y) {
+        _classCallCheck(this, Button);
+
+        return _possibleConstructorReturn(this, (Button.__proto__ || Object.getPrototypeOf(Button)).call(this, context, x, y, DEFAULT_SIZE, DEFAULT_SIZE, images["buttonUp.svg"], true, 0, 1, 60, 60));
+    }
+
+    _createClass(Button, [{
+        key: "press",
+        value: function press() {
+            _get(Button.prototype.__proto__ || Object.getPrototypeOf(Button.prototype), "activate", this).call(this, true);
+            this.img = images["buttonDown.svg"];
+        }
+    }, {
+        key: "release",
+        value: function release() {
+            _get(Button.prototype.__proto__ || Object.getPrototypeOf(Button.prototype), "activate", this).call(this, false);
+            this.img = images["buttonUp.svg"];
+        }
+    }, {
+        key: "contains",
+        value: function contains(pos) {
+            return circleContains(this.transform, pos);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Button";
+        }
+    }]);
+
+    return Button;
+}(IOObject);
+
+Button.getXMLName = function () {
+    return "button";
+};
+Importer.types.push(Button);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Clock = function (_IOObject) {
+    _inherits(Clock, _IOObject);
+
+    function Clock(context, x, y) {
+        _classCallCheck(this, Clock);
+
+        var _this = _possibleConstructorReturn(this, (Clock.__proto__ || Object.getPrototypeOf(Clock)).call(this, context, x, y, 60, 60 / images["clock.svg"].ratio, images["clock.svg"], false, 0, 1));
+
+        _this.frequency = 1000;
+        setTimeout(function () {
+            return _this.tick();
+        }, _this.frequency);
+        return _this;
+    }
+
+    _createClass(Clock, [{
+        key: "tick",
+        value: function tick() {
+            var _this2 = this;
+
+            this.activate(!this.isOn);
+            setTimeout(function () {
+                return _this2.tick();
+            }, this.frequency);
+        }
+    }, {
+        key: "activate",
+        value: function activate(on) {
+            _get(Clock.prototype.__proto__ || Object.getPrototypeOf(Clock.prototype), "activate", this).call(this, on);
+            this.img = on ? images["clockOn.svg"] : images["clock.svg"];
+            render();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Clock";
+        }
+    }]);
+
+    return Clock;
+}(IOObject);
+
+Clock.getXMLName = function () {
+    return "clock";
+};
+Importer.types.push(Clock);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ConstantHigh = function (_IOObject) {
+    _inherits(ConstantHigh, _IOObject);
+
+    function ConstantHigh(context, x, y) {
+        _classCallCheck(this, ConstantHigh);
+
+        var _this = _possibleConstructorReturn(this, (ConstantHigh.__proto__ || Object.getPrototypeOf(ConstantHigh)).call(this, context, x, y, DEFAULT_SIZE, DEFAULT_SIZE, images["constHigh.svg"], false, 0, 1));
+
+        _get(ConstantHigh.prototype.__proto__ || Object.getPrototypeOf(ConstantHigh.prototype), "activate", _this).call(_this, true);
+        return _this;
+    }
+
+    _createClass(ConstantHigh, [{
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Constant High";
+        }
+    }]);
+
+    return ConstantHigh;
+}(IOObject);
+
+ConstantHigh.getXMLName = function () {
+    return "consthigh";
+};
+Importer.types.push(ConstantHigh);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ConstantLow = function (_IOObject) {
+    _inherits(ConstantLow, _IOObject);
+
+    function ConstantLow(context, x, y) {
+        _classCallCheck(this, ConstantLow);
+
+        var _this = _possibleConstructorReturn(this, (ConstantLow.__proto__ || Object.getPrototypeOf(ConstantLow)).call(this, context, x, y, DEFAULT_SIZE, DEFAULT_SIZE, images["constLow.svg"], false, 0, 1));
+
+        _get(ConstantLow.prototype.__proto__ || Object.getPrototypeOf(ConstantLow.prototype), "activate", _this).call(_this, false);
+        return _this;
+    }
+
+    _createClass(ConstantLow, [{
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Constant Low";
+        }
+    }]);
+
+    return ConstantLow;
+}(IOObject);
+
+ConstantLow.getXMLName = function () {
+    return "constlow";
+};
+Importer.types.push(ConstantLow);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Keyboard = function (_IOObject) {
+    _inherits(Keyboard, _IOObject);
+
+    function Keyboard(context, x, y) {
+        _classCallCheck(this, Keyboard);
+
+        var _this = _possibleConstructorReturn(this, (Keyboard.__proto__ || Object.getPrototypeOf(Keyboard)).call(this, context, x, y, 3.5 * DEFAULT_SIZE, 3.5 * DEFAULT_SIZE / images["keyboard.svg"].ratio, images["keyboard.svg"], false, 0, 7));
+
+        _this.setOutputAmount(7);
+        for (var i = 0; i < 7; i++) {
+            var output = _this.outputs[i];
+
+            var l = -DEFAULT_SIZE / 2 * (i - 7 / 2 + 0.5);
+            if (i === 0) l -= 1;
+            if (i === 7 - 1) l += 1;
+
+            output.setOrigin(V(l, 0));
+            output.setTarget(V(l, -IO_PORT_LENGTH - (_this.transform.size.y - DEFAULT_SIZE) / 2));
+            output.dir = V(0, -1);
+        }
+        return _this;
+    }
+
+    _createClass(Keyboard, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code) {
+            var code = Keyboard.codeMap[code];
+            if (code == undefined) return;
+
+            // Down bit
+            this.activate(true, this.outputs.length - 1);
+
+            for (var i = this.outputs.length - 2; i >= 0; i--) {
+                var num = 1 << i;
+                if (num > code) {
+                    this.outputs[i].activate(false);
+                } else {
+                    this.outputs[i].activate(true);
+                    code -= num;
+                }
+            }
+        }
+    }, {
+        key: "onKeyUp",
+        value: function onKeyUp(code) {
+            var code = Keyboard.codeMap[code];
+            if (code == undefined) return;
+
+            // Up bit
+            this.activate(false, this.outputs.length - 1);
+
+            for (var i = this.outputs.length - 2; i >= 0; i--) {
+                this.outputs[i].activate(false);
+                // var num = 1 << i;
+                // if (num > code) {
+                //     this.outputs[i].activate(false);
+                // } else {
+                //     this.outputs[i].activate(true);
+                //     code -= num;
+                // }
+            }
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Keyboard";
+        }
+    }]);
+
+    return Keyboard;
+}(IOObject);
+
+Keyboard.getXMLName = function () {
+    return "keyboard";
+};
+Importer.types.push(Keyboard);
+
+Keyboard.codeMap = [];
+Keyboard.codeCount = 0;
+
+Keyboard.addKey = function (code) {
+    Keyboard.codeMap[code] = ++Keyboard.codeCount;
+};
+
+// Add numbers 0-9
+for (var code = 48; code <= 57; code++) {
+    Keyboard.addKey(code);
+} // Add letters a-z
+for (var code = 65; code <= 90; code++) {
+    Keyboard.addKey(code);
+}Keyboard.addKey(32); // Space
+Keyboard.addKey(13); // Enter
+Keyboard.addKey(8); // Delete
+Keyboard.addKey(9); // Tab
+Keyboard.addKey(16); // LShift
+Keyboard.addKey(17); // LCtrl
+Keyboard.addKey(18); // LOption
+Keyboard.addKey(91); // LCommand
+Keyboard.addKey(20); // Caps lock
+Keyboard.addKey(27); // Escape
+Keyboard.addKey(192); // Tilda
+Keyboard.addKey(189); // Minus
+Keyboard.addKey(187); // Plus
+Keyboard.addKey(219); // LBracket
+Keyboard.addKey(221); // RBracket
+Keyboard.addKey(220); // Backslash
+Keyboard.addKey(186); // Semicolon
+Keyboard.addKey(222); // Quote
+Keyboard.addKey(188); // Comma
+Keyboard.addKey(190); // Period
+Keyboard.addKey(191); // Forwardslash
+Keyboard.addKey(37); // Left
+Keyboard.addKey(38); // Up
+Keyboard.addKey(39); // Right
+Keyboard.addKey(40); // Down
+Keyboard.addKey(112); // F1
+Keyboard.addKey(112); // F2
+
+console.log(Keyboard.codeCount);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Switch = function (_IOObject) {
+    _inherits(Switch, _IOObject);
+
+    function Switch(context, x, y) {
+        _classCallCheck(this, Switch);
+
+        return _possibleConstructorReturn(this, (Switch.__proto__ || Object.getPrototypeOf(Switch)).call(this, context, x, y, 60 * images["switchUp.svg"].ratio, 60, images["switchUp.svg"], true, 0, 1, 77 * images["switchUp.svg"].ratio, 77));
+    }
+
+    _createClass(Switch, [{
+        key: "activate",
+        value: function activate(on) {
+            _get(Switch.prototype.__proto__ || Object.getPrototypeOf(Switch.prototype), "activate", this).call(this, on);
+            this.img = images[this.isOn ? "switchDown.svg" : "switchUp.svg"];
+        }
+    }, {
+        key: "click",
+        value: function click() {
+            _get(Switch.prototype.__proto__ || Object.getPrototypeOf(Switch.prototype), "click", this).call(this);
+            this.activate(!this.isOn);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Switch";
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var switchNode = _get(Switch.prototype.__proto__ || Object.getPrototypeOf(Switch.prototype), "writeTo", this).call(this, node);
+            createTextElement(switchNode, "isOn", this.outputs[0].isOn);
+            return switchNode;
+        }
+    }]);
+
+    return Switch;
+}(IOObject);
+
+Switch.getXMLName = function () {
+    return "switch";
+};
+Importer.types.push(Switch);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ANDGate = function (_Gate) {
+    _inherits(ANDGate, _Gate);
+
+    function ANDGate(context, not, x, y) {
+        _classCallCheck(this, ANDGate);
+
+        return _possibleConstructorReturn(this, (ANDGate.__proto__ || Object.getPrototypeOf(ANDGate)).call(this, context, not, x, y, images["and.svg"]));
+    }
+
+    _createClass(ANDGate, [{
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            _get(ANDGate.prototype.__proto__ || Object.getPrototypeOf(ANDGate.prototype), "setInputAmount", this).call(this, target);
+
+            for (var i = 0; i < this.inputs.length; i++) {
+                var input = this.inputs[i];
+                input.origin = V(-(this.transform.size.x - 2) / 2, input.origin.y);
+            }
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var on = true;
+            for (var i = 0; i < this.inputs.length; i++) {
+                on = on && this.inputs[i].isOn;
+            }_get(ANDGate.prototype.__proto__ || Object.getPrototypeOf(ANDGate.prototype), "activate", this).call(this, on);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+            var l1 = -(this.transform.size.y / 2) * (0.5 - this.inputs.length / 2);
+            var l2 = -(this.transform.size.y / 2) * (this.inputs.length / 2 - 0.5);
+
+            var s = (this.transform.size.x - 2) / 2;
+            var p1 = V(-s, l1);
+            var p2 = V(-s, l2);
+
+            renderer.line(p1.x, p1.y, p2.x, p2.y, this.getBorderColor(), 2);
+            renderer.restore();
+
+            _get(ANDGate.prototype.__proto__ || Object.getPrototypeOf(ANDGate.prototype), "draw", this).call(this);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return this.not ? "NAND Gate" : "AND Gate";
+        }
+    }]);
+
+    return ANDGate;
+}(Gate);
+
+ANDGate.getXMLName = function () {
+    return "andgate";
+};
+Importer.types.push(ANDGate);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var BUFGate = function (_Gate) {
+    _inherits(BUFGate, _Gate);
+
+    function BUFGate(context, not, x, y) {
+        _classCallCheck(this, BUFGate);
+
+        var _this = _possibleConstructorReturn(this, (BUFGate.__proto__ || Object.getPrototypeOf(BUFGate)).call(this, context, not, x, y, images["buffer.svg"]));
+
+        _this.maxInputs = 1;
+
+        _this.setInputAmount(1);
+        _this.activate(false);
+        return _this;
+    }
+
+    _createClass(BUFGate, [{
+        key: "activate",
+        value: function activate(x) {
+            var on = false;
+            for (var i = 0; i < this.inputs.length; i++) {
+                on = this.inputs[i].isOn;
+            }_get(BUFGate.prototype.__proto__ || Object.getPrototypeOf(BUFGate.prototype), "activate", this).call(this, on);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return this.not ? "NOT Gate" : "Buffer Gate";
+        }
+    }]);
+
+    return BUFGate;
+}(Gate);
+
+BUFGate.getXMLName = function () {
+    return "bufgate";
+};
+Importer.types.push(BUFGate);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var ORGate = function (_Gate) {
+    _inherits(ORGate, _Gate);
+
+    function ORGate(context, not, x, y) {
+        _classCallCheck(this, ORGate);
+
+        return _possibleConstructorReturn(this, (ORGate.__proto__ || Object.getPrototypeOf(ORGate)).call(this, context, not, x, y, images["or.svg"]));
+    }
+
+    _createClass(ORGate, [{
+        key: "quadCurveXAt",
+        value: function quadCurveXAt(t) {
+            var s = this.transform.size.x / 2 - 2;
+            var l = this.transform.size.x / 5 - 2;
+            var t2 = 1 - t;
+            return t2 * t2 * -s + 2 * t * t2 * -l + t * t * -s;
+        }
+    }, {
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            _get(ORGate.prototype.__proto__ || Object.getPrototypeOf(ORGate.prototype), "setInputAmount", this).call(this, target);
+
+            for (var i = 0; i < this.inputs.length; i++) {
+                var input = this.inputs[i];
+                var t = (input.origin.y / this.transform.size.y + 0.5) % 1.0;
+                if (t < 0) t += 1.0;
+                var x = this.quadCurveXAt(t);
+                input.origin = V(x, input.origin.y);
+            }
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var on = false;
+            for (var i = 0; i < this.inputs.length; i++) {
+                on = on || this.inputs[i].isOn;
+            }_get(ORGate.prototype.__proto__ || Object.getPrototypeOf(ORGate.prototype), "activate", this).call(this, on);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+            var amt = 2 * Math.floor(this.inputs.length / 4) + 1;
+            for (var i = 0; i < amt; i++) {
+                var d = (i - Math.floor(amt / 2)) * this.transform.size.y;
+                var h = 2;
+                var l1 = -this.transform.size.y / 2;
+                var l2 = +this.transform.size.y / 2;
+
+                var s = this.transform.size.x / 2 - h;
+                var l = this.transform.size.x / 5 - h;
+
+                var p1 = V(-s, l1 + d);
+                var p2 = V(-s, l2 + d);
+                var c = V(-l, d);
+
+                renderer.quadCurve(p1.x, p1.y, p2.x, p2.y, c.x, c.y, this.getBorderColor(), 2);
+            }
+            renderer.restore();
+
+            _get(ORGate.prototype.__proto__ || Object.getPrototypeOf(ORGate.prototype), "draw", this).call(this);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return this.not ? "NOR Gate" : "OR Gate";
+        }
+    }]);
+
+    return ORGate;
+}(Gate);
+
+ORGate.getXMLName = function () {
+    return "orgate";
+};
+Importer.types.push(ORGate);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var XORGate = function (_Gate) {
+    _inherits(XORGate, _Gate);
+
+    function XORGate(context, not, x, y) {
+        _classCallCheck(this, XORGate);
+
+        return _possibleConstructorReturn(this, (XORGate.__proto__ || Object.getPrototypeOf(XORGate)).call(this, context, not, x, y, images["or.svg"]));
+    }
+
+    _createClass(XORGate, [{
+        key: "quadCurveXAt",
+        value: function quadCurveXAt(t) {
+            var s = this.transform.size.x / 2 - 2;
+            var l = this.transform.size.x / 5 - 2;
+            var t2 = 1 - t;
+            return t2 * t2 * -s + 2 * t * t2 * -l + t * t * -s;
+        }
+    }, {
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            _get(XORGate.prototype.__proto__ || Object.getPrototypeOf(XORGate.prototype), "setInputAmount", this).call(this, target);
+
+            for (var i = 0; i < this.inputs.length; i++) {
+                var input = this.inputs[i];
+                var t = (input.origin.y / this.transform.size.y + 0.5) % 1.0;
+                if (t < 0) t += 1.0;
+                var x = this.quadCurveXAt(t);
+                input.origin = V(x, input.origin.y);
+            }
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var on = false;
+            for (var i = 0; i < this.inputs.length; i++) {
+                on = on !== this.inputs[i].isOn;
+            }_get(XORGate.prototype.__proto__ || Object.getPrototypeOf(XORGate.prototype), "activate", this).call(this, on);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(XORGate.prototype.__proto__ || Object.getPrototypeOf(XORGate.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+            var amt = 2 * Math.floor(this.inputs.length / 4) + 1;
+            for (var i = 0; i < amt; i++) {
+                var d = (i - Math.floor(amt / 2)) * this.transform.size.y;
+                var h = 2;
+                var x = 12;
+                var l1 = -this.transform.size.y / 2;
+                var l2 = +this.transform.size.y / 2;
+
+                var s = this.transform.size.x / 2 - h;
+                var l = this.transform.size.x / 5 - h;
+
+                var p1 = V(-s, l1 + d);
+                var p2 = V(-s, l2 + d);
+                var c = V(-l, d);
+
+                renderer.quadCurve(p1.x, p1.y, p2.x, p2.y, c.x, c.y, this.getBorderColor(), 2);
+                renderer.quadCurve(p1.x - x, p1.y, p2.x - x, p2.y, c.x - x, c.y, this.getBorderColor(), 2);
+            }
+
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return this.not ? "XNOR Gate" : "XOR Gate";
+        }
+    }, {
+        key: "getXMLName",
+        value: function getXMLName() {
+            return "xorgate";
+        }
+    }]);
+
+    return XORGate;
+}(Gate);
+
+XORGate.getXMLName = function () {
+    return "xorgate";
+};
+Importer.types.push(XORGate);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var LED = function (_IOObject) {
+    _inherits(LED, _IOObject);
+
+    function LED(context, x, y, color) {
+        _classCallCheck(this, LED);
+
+        var _this = _possibleConstructorReturn(this, (LED.__proto__ || Object.getPrototypeOf(LED)).call(this, context, x, y, DEFAULT_SIZE, DEFAULT_SIZE, images["led.svg"], false, 1, 0));
+
+        _this.transform.setPos(V(_this.transform.pos.x, _this.transform.pos.y - 2 * _this.transform.size.y));
+        _this.color = color == undefined ? "#ffffff" : color;
+        _this.connectorWidth = 5;
+
+        _this.setInputAmount(1);
+        _this.inputs[0].setOrigin(V(0, 0));
+        _this.inputs[0].setTarget(V(0, 2 * _this.transform.size.y));
+        _this.inputs[0].lineColor = '#ffffff';
+        _this.inputs[0].dir = V(0, 1);
+        return _this;
+    }
+
+    _createClass(LED, [{
+        key: "updateCullTransform",
+        value: function updateCullTransform() {
+            _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "updateCullTransform", this).call(this);
+            if (this.isOn) {
+                this.cullTransform.setSize(V(3 * this.transform.size.x, 4 * this.transform.size.y));
+                this.cullTransform.setPos(this.transform.pos.add(V(0, (this.inputs[0].target.y - this.transform.size.y * 3 / 2) / 2)));
+            }
+        }
+    }, {
+        key: "activate",
+        value: function activate(on, i) {
+            _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "activate", this).call(this, on, i);
+            this.updateCullTransform();
+        }
+    }, {
+        key: "getImageTint",
+        value: function getImageTint() {
+            return this.color;
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+            if (this.isOn) renderer.image(images["ledLight.svg"], 0, 0, 3 * this.transform.size.x, 3 * this.transform.size.y, this.color);
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "LED";
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            var copy = _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "copy", this).call(this);
+            copy.color = this.color;
+            copy.connectorWidth = this.connectorWidth;
+            return copy;
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var LEDNode = _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "writeTo", this).call(this, node);
+            createTextElement(LEDNode, "color", this.color);
+            return LEDNode;
+        }
+    }, {
+        key: "load",
+        value: function load(node) {
+            _get(LED.prototype.__proto__ || Object.getPrototypeOf(LED.prototype), "load", this).call(this, node);
+            var color = getStringValue(getChildNode(node, "color"));
+            this.color = color;
+            return this;
+        }
+    }]);
+
+    return LED;
+}(IOObject);
+
+LED.getXMLName = function () {
+    return "led";
+};
+Importer.types.push(LED);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SevenSegmentDisplay = function (_IOObject) {
+    _inherits(SevenSegmentDisplay, _IOObject);
+
+    function SevenSegmentDisplay(context, x, y) {
+        _classCallCheck(this, SevenSegmentDisplay);
+
+        var _this = _possibleConstructorReturn(this, (SevenSegmentDisplay.__proto__ || Object.getPrototypeOf(SevenSegmentDisplay)).call(this, context, x, y, 100 * 7 / 10, 100, undefined, false, 7, 0));
+
+        _this.setInputAmount(7);
+        _this.noChange = true;
+        _this.segmentWidth = 45;
+        _this.segmentHeight = 10;
+
+        for (var ii = 0; ii < 7; ii++) {
+            var iport = _this.inputs[ii];
+            var i = iport.getIndex();
+
+            var l = -15 * (i - iport.getArray().length / 2.0 + 0.5);
+
+            iport.setOrigin(V(iport.origin.x, l));
+            iport.setTarget(V(iport.target.x, l));
+        }
+        var w = _this.transform.size.x;
+        var h = _this.transform.size.y;
+
+        var padding = 15;
+
+        var sw = _this.segmentWidth;
+        var sh = _this.segmentHeight;
+
+        _this.segmentPositions = [V(0, -sw + sh), V(sw / 2 - sh / 2, (-sw + sh) / 2), V(sw / 2 - sh / 2, (+sw - sh) / 2), V(0, sw - sh), V(-sw / 2 + sh / 2, (+sw - sh) / 2), V(-sw / 2 + sh / 2, (-sw + sh) / 2), V(0, 0)];
+        _this.segmentSizes = [V(sw, sh), V(sh, sw), V(sh, sw), V(sw, sh), V(sh, sw), V(sh, sw), V(sw, sh)];
+        _this.segmentImages = [images["segment1.svg"], images["segment2.svg"], images["segment2.svg"], images["segment1.svg"], images["segment2.svg"], images["segment2.svg"], images["segment1.svg"]];
+        _this.segmentOnImages = [images["segment3.svg"], images["segment4.svg"], images["segment4.svg"], images["segment3.svg"], images["segment4.svg"], images["segment4.svg"], images["segment3.svg"]];
+        return _this;
+    }
+
+    _createClass(SevenSegmentDisplay, [{
+        key: "draw",
+        value: function draw() {
+            _get(SevenSegmentDisplay.prototype.__proto__ || Object.getPrototypeOf(SevenSegmentDisplay.prototype), "draw", this).call(this);
+
+            this.localSpace();
+            var renderer = this.context.getRenderer();
+            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
+
+            for (var i = 0; i < 7; i++) {
+                var pos = this.segmentPositions[i];
+                var size = this.segmentSizes[i];
+                var on = this.inputs[i].isOn;
+                var img = on ? this.segmentOnImages[i] : this.segmentImages[i];
+
+                renderer.image(img, pos.x, pos.y, size.x, size.y, undefined);
+            }
+
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "7 Segment Display";
+        }
+    }, {
+        key: "getXMLName",
+        value: function getXMLName() {
+            return "sevensegmentdisplay";
+        }
+    }]);
+
+    return SevenSegmentDisplay;
+}(IOObject);
+
+SevenSegmentDisplay.getXMLName = function () {
+    return "sevensegmentdisplay";
+};
+Importer.types.push(SevenSegmentDisplay);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Decoder = function (_Gate) {
+    _inherits(Decoder, _Gate);
+
+    function Decoder(context, x, y) {
+        _classCallCheck(this, Decoder);
+
+        var _this = _possibleConstructorReturn(this, (Decoder.__proto__ || Object.getPrototypeOf(Decoder)).call(this, context, false, x, y, undefined));
+
+        _this.activate(0);
+        return _this;
+    }
+
+    _createClass(Decoder, [{
+        key: "onTransformChange",
+        value: function onTransformChange() {
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE));
+            _get(Decoder.prototype.__proto__ || Object.getPrototypeOf(Decoder.prototype), "onTransformChange", this).call(this);
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE / 2 * (2 << this.inputs.length - 1)));
+        }
+    }, {
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            target = clamp(target, 0, 8);
+            _get(Decoder.prototype.__proto__ || Object.getPrototypeOf(Decoder.prototype), "setInputAmount", this).call(this, target);
+            _get(Decoder.prototype.__proto__ || Object.getPrototypeOf(Decoder.prototype), "setOutputAmount", this).call(this, 2 << target - 1);
+        }
+    }, {
+        key: "getInputAmount",
+        value: function getInputAmount() {
+            return this.inputs.length;
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var num = 0;
+            for (var i = 0; i < this.inputs.length; i++) {
+                num = num | (this.inputs[i].isOn ? 1 : 0) << i;
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].activate(i === num, i);
+            }
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Decoder.prototype.__proto__ || Object.getPrototypeOf(Decoder.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
+            renderer.restore();
+        }
+    }, {
+        key: "getMinInputFieldCount",
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Decoder";
+        }
+    }]);
+
+    return Decoder;
+}(Gate);
+
+Decoder.getXMLName = function () {
+    return "decoder";
+};
+Importer.types.push(Decoder);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Demultiplexer = function (_Gate) {
+    _inherits(Demultiplexer, _Gate);
+
+    function Demultiplexer(context, x, y) {
+        _classCallCheck(this, Demultiplexer);
+
+        return _possibleConstructorReturn(this, (Demultiplexer.__proto__ || Object.getPrototypeOf(Demultiplexer)).call(this, context, false, x, y, undefined));
+    }
+
+    _createClass(Demultiplexer, [{
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            _get(Demultiplexer.prototype.__proto__ || Object.getPrototypeOf(Demultiplexer.prototype), "setInputAmount", this).call(this, target + 1);
+            _get(Demultiplexer.prototype.__proto__ || Object.getPrototypeOf(Demultiplexer.prototype), "setOutputAmount", this).call(this, 2 << target - 1);
+
+            var width = Math.max(DEFAULT_SIZE / 2 * (target - 1), DEFAULT_SIZE);
+            var height = DEFAULT_SIZE / 2 * (2 << target - 1);
+            this.transform.setSize(V(width + 10, height));
+
+            this.selectLines = [];
+            for (var i = 0; i < target; i++) {
+                var input = this.inputs[i];
+                this.selectLines.push(input);
+
+                var l = -DEFAULT_SIZE / 2 * (i - target / 2 + 0.5);
+                if (i === 0) l -= 1;
+                if (i === target - 1) l += 1;
+
+                input.setOrigin(V(l, 0));
+                input.setTarget(V(l, IO_PORT_LENGTH + height / 2 - DEFAULT_SIZE / 2));
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                var output = this.outputs[i];
+
+                var l = -DEFAULT_SIZE / 2 * (i - this.outputs.length / 2 + 0.5);
+                if (i === 0) l -= 1;
+                if (i === this.outputs.length - 1) l += 1;
+
+                output.setOrigin(V(0, l));
+                output.setTarget(V(IO_PORT_LENGTH + (width / 2 - DEFAULT_SIZE / 2), l));
+            }
+            var input = this.inputs[this.inputs.length - 1];
+            input.setOrigin(V(0, 0));
+            input.setTarget(V(-IO_PORT_LENGTH - (width / 2 - DEFAULT_SIZE / 2), 0));
+        }
+    }, {
+        key: "getInputAmount",
+        value: function getInputAmount() {
+            return this.selectLines.length;
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var num = 0;
+            for (var i = 0; i < this.selectLines.length; i++) {
+                num = num | (this.selectLines[i].isOn ? 1 : 0) << i;
+            }
+            _get(Demultiplexer.prototype.__proto__ || Object.getPrototypeOf(Demultiplexer.prototype), "activate", this).call(this, this.inputs[this.inputs.length - 1].isOn, num);
+            // var num = 0;
+            // for (var i = 0; i < this.selectLines.length; i++)
+            //     num = num | ((this.selectLines[i].isOn ? 1 : 0) << i);
+            // super.activate(this.inputs[num + this.selectLines.length].isOn);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Demultiplexer.prototype.__proto__ || Object.getPrototypeOf(Demultiplexer.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+
+            var p1 = V(this.transform.size.x / 2, this.transform.size.y / 2);
+            var p2 = V(this.transform.size.x / 2, -this.transform.size.y / 2);
+            var p3 = V(-this.transform.size.x / 2, -this.transform.size.y / 2 + 20);
+            var p4 = V(-this.transform.size.x / 2, this.transform.size.y / 2 - 20);
+
+            renderer.shape([p1, p2, p3, p4], this.getCol(), this.getBorderColor(), 2);
+
+            renderer.restore();
+        }
+    }, {
+        key: "getMinInputFieldCount",
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Demultiplexer";
+        }
+    }]);
+
+    return Demultiplexer;
+}(Gate);
+
+Demultiplexer.getXMLName = function () {
+    return "demux";
+};
+Importer.types.push(Demultiplexer);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Encoder = function (_Gate) {
+    _inherits(Encoder, _Gate);
+
+    function Encoder(context, x, y) {
+        _classCallCheck(this, Encoder);
+
+        return _possibleConstructorReturn(this, (Encoder.__proto__ || Object.getPrototypeOf(Encoder)).call(this, context, false, x, y, undefined));
+    }
+
+    _createClass(Encoder, [{
+        key: "onTransformChange",
+        value: function onTransformChange() {
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE));
+            _get(Encoder.prototype.__proto__ || Object.getPrototypeOf(Encoder.prototype), "onTransformChange", this).call(this);
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE / 2 * (2 << this.outputs.length - 1)));
+        }
+    }, {
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            target = clamp(target, 0, 8);
+            _get(Encoder.prototype.__proto__ || Object.getPrototypeOf(Encoder.prototype), "setInputAmount", this).call(this, 2 << target - 1);
+            _get(Encoder.prototype.__proto__ || Object.getPrototypeOf(Encoder.prototype), "setOutputAmount", this).call(this, target);
+        }
+    }, {
+        key: "getInputAmount",
+        value: function getInputAmount() {
+            return this.outputs.length;
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var indx = -1;
+            for (var i = 0; i < this.inputs.length; i++) {
+                if (this.inputs[i].isOn) {
+                    if (indx !== -1) return; // undefined behavior
+                    indx = i;
+                }
+            }
+            if (indx === -1) return; // undefined behavior
+            for (var i = this.outputs.length - 1; i >= 0; i--) {
+                var num = 1 << i;
+                if (num > indx) {
+                    this.outputs[i].activate(false);
+                } else {
+                    this.outputs[i].activate(true);
+                    indx -= num;
+                }
+            }
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Encoder.prototype.__proto__ || Object.getPrototypeOf(Encoder.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
+            renderer.restore();
+        }
+    }, {
+        key: "getMinInputFieldCount",
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Encoder";
+        }
+    }]);
+
+    return Encoder;
+}(Gate);
+
+Encoder.getXMLName = function () {
+    return "encoder";
+};
+Importer.types.push(Encoder);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var IC = function (_IOObject) {
+    _inherits(IC, _IOObject);
+
+    function IC(context, data, x, y) {
+        _classCallCheck(this, IC);
+
+        var _this = _possibleConstructorReturn(this, (IC.__proto__ || Object.getPrototypeOf(IC)).call(this, context, x, y, 50, 50, undefined, false, 999, 999));
+
+        _this.data = data;
+        _this.setup();
+        return _this;
+    }
+
+    _createClass(IC, [{
+        key: "setup",
+        value: function setup() {
+            if (this.data == undefined) return;
+
+            // Setup input and outputs
+            this.setInputAmount(this.data.getInputAmount());
+            this.setOutputAmount(this.data.getOutputAmount());
+
+            // Copy object references
+            var copy = this.data.copy();
+            this.inputObjects = copy.inputs;
+            this.outputObjects = copy.outputs;
+            this.components = copy.components;
+            for (var i = 0; i < this.outputObjects.length; i++) {
+                var ii = i;
+                var port = this.outputs[i];
+                this.outputObjects[i].activate = function (on) {
+                    port.activate(on);
+                };
+            }
+            this.noChange = true;
+
+            this.update();
+        }
+    }, {
+        key: "update",
+        value: function update() {
+            if (this.data == undefined) return;
+
+            // Update size
+            this.transform.setWidth(this.data.getWidth());
+            this.transform.setHeight(this.data.getHeight());
+
+            // Update port positions
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].setOrigin(this.data.iports[i].origin);
+                this.inputs[i].setTarget(this.data.iports[i].target);
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].setOrigin(this.data.oports[i].origin);
+                this.outputs[i].setTarget(this.data.oports[i].target);
+            }
+
+            this.activate();
+        }
+    }, {
+        key: "activate",
+        value: function activate() {
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputObjects[i].activate(this.inputs[i].isOn);
+            }
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+
+            _get(IC.prototype.__proto__ || Object.getPrototypeOf(IC.prototype), "draw", this).call(this);
+
+            this.localSpace();
+
+            var size = this.transform.size;
+            renderer.rect(0, 0, size.x, size.y, this.getCol(), '#000000', 1);
+
+            for (var i = 0; i < this.inputs.length; i++) {
+                var name = this.inputObjects[i].getName();
+                var pos1 = this.transform.toLocalSpace(this.inputs[i].getPos());
+                var align = "center";
+                var padding = 8;
+                var ww = renderer.getTextWidth(name) / 2;
+                var pos = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), pos1);
+                pos = pos.sub(pos1).normalize().scale(padding).add(pos);
+                pos.x = clamp(pos.x, -size.x / 2 + padding + ww, size.x / 2 - padding - ww);
+                pos.y = clamp(pos.y, -size.y / 2 + 14, size.y / 2 - 14);
+                renderer.text(name, pos.x, pos.y, 0, 0, align);
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                var name = this.outputObjects[i].getName();
+                var pos1 = this.transform.toLocalSpace(this.outputs[i].getPos());
+                var align = "center";
+                var padding = 8;
+                var ww = renderer.getTextWidth(name) / 2;
+                var pos = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), pos1);
+                pos = pos.sub(pos1).normalize().scale(padding).add(pos);
+                pos.x = clamp(pos.x, -size.x / 2 + padding + ww, size.x / 2 - padding - ww);
+                pos.y = clamp(pos.y, -size.y / 2 + 14, size.y / 2 - 14);
+                renderer.text(name, pos.x, pos.y, 0, 0, align);
+            }
+
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "IC";
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return new IC(this.context, this.data, this.transform.pos.x, this.transform.pos.y);
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var ICNode = _get(IC.prototype.__proto__ || Object.getPrototypeOf(IC.prototype), "writeTo", this).call(this, node);
+            createTextElement(ICNode, "icuid", this.data.getUID());
+            return ICNode;
+        }
+    }, {
+        key: "load",
+        value: function load(node, ics) {
+            _get(IC.prototype.__proto__ || Object.getPrototypeOf(IC.prototype), "load", this).call(this, node);
+            var icuid = getIntValue(getChildNode(node, "icuid"));
+            var data = findIC(icuid, ics);
+            this.data = data;
+            this.setup();
+            return this;
+        }
+    }]);
+
+    return IC;
+}(IOObject);
+
+IC.getXMLName = function () {
+    return "ic";
+};
+Importer.types.push(IC);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var ICData = function () {
+    function ICData(inputs, outputs, components) {
+        _classCallCheck(this, ICData);
+
+        this.transform = new Transform(V(0, 0), V(0, 0), 0);
+        this.inputs = inputs;
+        this.outputs = outputs;
+        this.components = components;
+        this.wires = getAllWires(this.getObjects());
+
+        this.uidmanager = new UIDManager(this);
+
+        // Give everything a uid
+        var objects = this.getObjects();
+        for (var i = 0; i < objects.length; i++) {
+            this.uidmanager.giveUIDTo(objects[i]);
+        }for (var i = 0; i < this.wires.length; i++) {
+            this.uidmanager.giveUIDTo(this.wires[i]);
+        } // Set start size based on length of names and amount of ports
+        var longestName = 0;
+        for (var i = 0; i < this.inputs.length; i++) {
+            longestName = Math.max(this.inputs[i].getName().length, longestName);
+        }for (var i = 0; i < this.outputs.length; i++) {
+            longestName = Math.max(this.outputs[i].getName().length, longestName);
+        }var w = DEFAULT_SIZE + 20 * longestName;
+        var h = DEFAULT_SIZE / 2 * Math.max(this.inputs.length, this.outputs.length);
+        this.transform.setSize(V(w, h));
+
+        // Create and position ioports
+        this.iports = [];
+        this.oports = [];
+        for (var i = 0; i < this.inputs.length; i++) {
+            this.iports[i] = new IPort();
+
+            var l = -DEFAULT_SIZE / 2 * (i - this.inputs.length / 2 + 0.5);
+            if (i === 0) l -= 1;
+            if (i === this.inputs.length - 1) l += 1;
+
+            this.iports[i].setOrigin(V(0, l));
+            this.iports[i].setTarget(V(-IO_PORT_LENGTH - (w / 2 - DEFAULT_SIZE / 2), l));
+        }
+        for (var i = 0; i < this.outputs.length; i++) {
+            this.oports[i] = new OPort();
+
+            var l = -DEFAULT_SIZE / 2 * (i - this.outputs.length / 2 + 0.5);
+            if (i === 0) l -= 1;
+            if (i === this.outputs.length - 1) l += 1;
+
+            this.oports[i].setOrigin(V(0, l));
+            this.oports[i].setTarget(V(IO_PORT_LENGTH + (w / 2 - DEFAULT_SIZE / 2), l));
+        }
+
+        this.recalculatePorts();
+    }
+
+    _createClass(ICData, [{
+        key: "recalculatePorts",
+        value: function recalculatePorts() {
+            var size = this.transform.size;
+
+            var inputs = this.iports;
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                // Scale by large number to make sure that the target pos is not in the IC
+                var targ = this.transform.getMatrix().mul(inp.target);
+                var orig = this.transform.getMatrix().mul(inp.origin);
+                var pos = targ.add(targ.sub(orig).normalize().scale(10000));
+                var p = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), pos);
+                var v1 = p.sub(pos).normalize().scale(size.scale(0.5)).add(p);
+                var v2 = p.sub(pos).normalize().scale(size.scale(0.5).sub(V(IO_PORT_LENGTH + size.x / 2 - 25, IO_PORT_LENGTH + size.y / 2 - 25))).add(p);
+                inp.setOrigin(v1);
+                inp.setTarget(v2);
+            }
+            var outputs = this.oports;
+            for (var i = 0; i < outputs.length; i++) {
+                var out = outputs[i];
+                // Scale by large number to make sure that the target pos is not in the IC
+                var targ = this.transform.getMatrix().mul(out.target);
+                var orig = this.transform.getMatrix().mul(out.origin);
+                var pos = targ.add(targ.sub(orig).normalize().scale(10000));
+                var p = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), pos);
+                var v1 = p.sub(pos).normalize().scale(size.scale(0.5)).add(p);
+                var v2 = p.sub(pos).normalize().scale(size.scale(0.5).sub(V(IO_PORT_LENGTH + size.x / 2 - 25, IO_PORT_LENGTH + size.y / 2 - 25))).add(p);
+                out.setOrigin(v1);
+                out.setTarget(v2);
+            }
+        }
+    }, {
+        key: "getInputAmount",
+        value: function getInputAmount() {
+            return this.inputs.length;
+        }
+    }, {
+        key: "getOutputAmount",
+        value: function getOutputAmount() {
+            return this.outputs.length;
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return separateGroup(copyGroup(this.getObjects()).objects);
+        }
+    }, {
+        key: "getUID",
+        value: function getUID() {
+            return this.icuid;
+        }
+    }, {
+        key: "getObjects",
+        value: function getObjects() {
+            return this.inputs.concat(this.components, this.outputs);
+        }
+    }, {
+        key: "getWires",
+        value: function getWires() {
+            return this.wires;
+        }
+    }, {
+        key: "getWidth",
+        value: function getWidth() {
+            return this.transform.getSize().x;
+        }
+    }, {
+        key: "getHeight",
+        value: function getHeight() {
+            return this.transform.getSize().y;
+        }
+    }]);
+
+    return ICData;
+}();
+
+ICData.create = function (objects) {
+    objects = copyGroup(objects).objects;
+    var separate = separateGroup(objects);
+    for (var i = 0; i < separate.inputs.length; i++) {
+        var input = separate.inputs[i];
+        if (input instanceof Clock && input.getName() === input.getDisplayName()) input.setName(">");
+    }
+    return new ICData(separate.inputs, separate.outputs, separate.components);
+};
+ICData.add = function (data) {
+    data.icuid = ICData.ICs.length;
+    ICData.ICs.push(data);
+};
+ICData.redistributeUIDs = function () {
+    var ics = [];
+    for (var i = 0; i < ICData.ICs.length; i++) {
+        ics[i] = ICData.ICs[i];
+    }ICData.ICs = [];
+    for (var i = 0; i < ics.length; i++) {
+        ics[i].icuid = i;
+        ICData.ICs[i] = ics[i];
+    }
+};
+ICData.ICs = [];
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Label = function (_IOObject) {
+    _inherits(Label, _IOObject);
+
+    function Label(context, x, y) {
+        _classCallCheck(this, Label);
+
+        var _this = _possibleConstructorReturn(this, (Label.__proto__ || Object.getPrototypeOf(Label)).call(this, context, x, y, 0, 0, undefined, true, 0, 0, 60, 30));
+
+        _this.setName("LABEL");
+
+        _this.setInputAmount(0);
+        _this.setOutputAmount(0);
+        return _this;
+    }
+
+    _createClass(Label, [{
+        key: "activate",
+        value: function activate(x) {}
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Label.prototype.__proto__ || Object.getPrototypeOf(Label.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+
+            this.localSpace();
+
+            var align = "center";
+            var padding = 8;
+            var ww = renderer.getTextWidth(this.text) / 2;
+            var pos = V(0, 0);
+            renderer.text(this.name, pos.x, pos.y, 0, 0, align);
+
+            renderer.restore();
+        }
+    }, {
+        key: "setName",
+        value: function setName(name) {
+            _get(Label.prototype.__proto__ || Object.getPrototypeOf(Label.prototype), "setName", this).call(this, name);
+            var renderer = this.context.getRenderer();
+            var width = renderer.getTextWidth(this.name) + 20;
+            this.selectionBoxTransform.setSize(V(width, this.selectionBoxTransform.size.y));
+            this.onTransformChange();
+            render();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return this.name;
+        }
+    }]);
+
+    return Label;
+}(IOObject);
+
+Label.getXMLName = function () {
+    return "label";
+};
+Importer.types.push(Label);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var Multiplexer = function (_Gate) {
+    _inherits(Multiplexer, _Gate);
+
+    function Multiplexer(context, x, y) {
+        _classCallCheck(this, Multiplexer);
+
+        return _possibleConstructorReturn(this, (Multiplexer.__proto__ || Object.getPrototypeOf(Multiplexer)).call(this, context, false, x, y, undefined));
+    }
+
+    _createClass(Multiplexer, [{
+        key: "setInputAmount",
+        value: function setInputAmount(target) {
+            _get(Multiplexer.prototype.__proto__ || Object.getPrototypeOf(Multiplexer.prototype), "setInputAmount", this).call(this, target + (2 << target - 1));
+
+            var width = Math.max(DEFAULT_SIZE / 2 * (target - 1), DEFAULT_SIZE);
+            var height = DEFAULT_SIZE / 2 * (2 << target - 1);
+            this.transform.setSize(V(width + 10, height));
+
+            this.selectLines = [];
+            for (var i = 0; i < target; i++) {
+                var input = this.inputs[i];
+                this.selectLines.push(input);
+
+                var l = -DEFAULT_SIZE / 2 * (i - target / 2 + 0.5);
+                if (i === 0) l -= 1;
+                if (i === target - 1) l += 1;
+
+                input.setOrigin(V(l, 0));
+                input.setTarget(V(l, IO_PORT_LENGTH + height / 2 - DEFAULT_SIZE / 2));
+            }
+            for (var ii = target; ii < this.inputs.length; ii++) {
+                var input = this.inputs[ii];
+
+                var i = ii - target;
+
+                var l = -DEFAULT_SIZE / 2 * (i - (this.inputs.length - target) / 2 + 0.5);
+                if (i === 0) l -= 1;
+                if (i === this.inputs.length - target - 1) l += 1;
+
+                input.setOrigin(V(0, l));
+                input.setTarget(V(-IO_PORT_LENGTH - (width / 2 - DEFAULT_SIZE / 2), l));
+            }
+            var output = this.outputs[0];
+            output.target = V(IO_PORT_LENGTH + (width / 2 - DEFAULT_SIZE / 2), output.target.y);
+        }
+    }, {
+        key: "getInputAmount",
+        value: function getInputAmount() {
+            return this.selectLines.length;
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var num = 0;
+            for (var i = 0; i < this.selectLines.length; i++) {
+                num = num | (this.selectLines[i].isOn ? 1 : 0) << i;
+            }_get(Multiplexer.prototype.__proto__ || Object.getPrototypeOf(Multiplexer.prototype), "activate", this).call(this, this.inputs[num + this.selectLines.length].isOn);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(Multiplexer.prototype.__proto__ || Object.getPrototypeOf(Multiplexer.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+
+            var p1 = V(-this.transform.size.x / 2, this.transform.size.y / 2);
+            var p2 = V(-this.transform.size.x / 2, -this.transform.size.y / 2);
+            var p3 = V(this.transform.size.x / 2, -this.transform.size.y / 2 + 20);
+            var p4 = V(this.transform.size.x / 2, this.transform.size.y / 2 - 20);
+
+            renderer.shape([p1, p2, p3, p4], this.getCol(), this.getBorderColor(), 2);
+
+            renderer.restore();
+        }
+    }, {
+        key: "getMinInputFieldCount",
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "Multiplexer";
+        }
+    }, {
+        key: "getXMLName",
+        value: function getXMLName() {
+            return "mux";
+        }
+    }]);
+
+    return Multiplexer;
+}(Gate);
+
+Multiplexer.getXMLName = function () {
+    return "mux";
+};
+Importer.types.push(Multiplexer);
 //# sourceMappingURL=combined-min.js.map

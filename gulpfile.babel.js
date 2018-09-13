@@ -6,25 +6,30 @@ var mocha  = require('gulp-mocha');
 var babel  = require('gulp-babel');
 var addsrc = require('gulp-add-src');
 var fs     = require('fs');
+var watch  = require('gulp-watch')
 var sm     = require('gulp-sourcemaps');
 
 var argv = require('yargs').argv;
 
-gulp.task('scripts', function() {
+var buildScripts = function(){
     return new Promise(function(resolve, reject) {
         gulp.src(['app/src/**/*.js'])
         .pipe(sm.init())
-        .pipe(babel({presets: ['es2015']}))
-        .pipe(uglify())
+        .pipe(babel({presets: ['es2015']}))  
+        // .pipe(uglify())
         .pipe(concat('combined-min.js'))
-        .pipe(gulp.dest('dist'))
+        .pipe(gulp.dest('public/javascripts'))
         .pipe(sm.write('.'))
-        .pipe(gulp.dest('dist'));
-        console.log("Production scripts built");
+        .pipe(gulp.dest('public/javascripts'));
+        console.log("Uglified JS and sourcemap generated");
         resolve();
     });
+}
+
+gulp.task('scripts', function() {
+    return buildScripts;
 })
 
 gulp.task('default', function() {
-    gulp.run('scripts');
+    gulp.watch('app/src/**', buildScripts);
 })
