@@ -1,24 +1,12 @@
-var express = require('express');
-var express_graphql = require('express-graphql')
-var { buildSchema } = require('graphql');
+const express = require('express');
+const express_graphql = require('express-graphql')
 
-// GraphQL schema
-var schema = buildSchema(`
-    type Query {
-        message: String
-    }
-`);
+const schema = require('../schema/schema')
 
-// Root resolver
-var root = {
-  message: () => 'Hello World!'
-};
+const router = express.Router();
 
-var router = express.Router();
-
-router.get('/graphql', express_graphql({
-  schema: schema,
-  rootValue: root,
+router.all('/graphql', express_graphql({
+  schema,
   graphiql: true
 }));
 

@@ -1,988 +1,337 @@
 "use strict";
 
-var Exporter = function () {
-    var projectNameInput = document.getElementById("project-name");
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-    return {
-        ROOT: undefined,
-        saveFile: function saveFile() {
-            var data = this.write(getCurrentContext());
-            var projectName = projectNameInput.value;
-            if (projectName === "Untitled Circuit*") projectName = "Untitled Circuit";
-            var filename = projectName + ".circuit";
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-            var file = new Blob([data], { type: "text/plain" });
-            if (window.navigator.msSaveOrOpenBlob) {
-                // IE10+
-                window.navigator.msSaveOrOpenBlob(file, filename);
-                saved = true;
-            } else {
-                // Others
-                var a = document.createElement("a");
-                var url = URL.createObjectURL(file);
-                a.href = url;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(function () {
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
-                    saved = true;
-                }, 0);
-            }
-        },
-        write: function write(context) {
-            var root = new window.DOMParser().parseFromString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><project></project>", "text/xml");
-            this.ROOT = root;
+var Action = function () {
+    function Action() {
+        _classCallCheck(this, Action);
 
-            var objects = context.getObjects();
-            var wires = context.getWires();
-
-            var projectNode = getChildNode(root, "project");
-
-            var icNode = createChildNode(projectNode, "ics");
-
-            this.writeICs(icNode);
-            this.writeGroup(projectNode, objects, wires);
-
-            return root.xml ? root.xml : new XMLSerializer().serializeToString(root);
-        },
-        writeGroup: function writeGroup(node, objects, wires) {
-            var objectsNode = createChildNode(node, "objects");
-            var wiresNode = createChildNode(node, "wires");
-
-            for (var i = 0; i < objects.length; i++) {
-                objects[i].writeTo(objectsNode);
-            }for (var i = 0; i < wires.length; i++) {
-                wires[i].writeTo(wiresNode);
-            }
-        },
-        writeICs: function writeICs(node) {
-            for (var i = 0; i < ICData.ICs.length; i++) {
-                var ic = ICData.ICs[i];
-                var ICNode = createChildNode(node, "ic");
-                createTextElement(ICNode, "icuid", ic.icuid);
-                createTextElement(ICNode, "width", ic.transform.size.x);
-                createTextElement(ICNode, "height", ic.transform.size.y);
-
-                var iportNode = createChildNode(ICNode, "iports");
-                for (var j = 0; j < ic.iports.length; j++) {
-                    ic.iports[j].writeTo(iportNode);
-                }var oportNode = createChildNode(ICNode, "oports");
-                for (var j = 0; j < ic.oports.length; j++) {
-                    ic.oports[j].writeTo(oportNode);
-                }var componentsNode = createChildNode(ICNode, "components");
-                var objects = ic.inputs.concat(ic.components, ic.outputs);
-                var wires = getAllWires(objects);
-                this.writeGroup(componentsNode, objects, wires);
-            }
-        }
-    };
-}();
-
-// UTILS
-function createChildNode(parent, tag) {
-    var child = Exporter.ROOT.createElement(tag);
-    parent.appendChild(child);
-    return child;
-}
-
-function createTextElement(node, tag, text) {
-    var a = Exporter.ROOT.createElement(tag);
-    var b = Exporter.ROOT.createTextNode(text);
-    a.appendChild(b);
-    node.appendChild(a);
-}
-"use strict";
-
-var Importer = function () {
-    var fileInput = document.getElementById('file-input');
-
-    return {
-        types: [],
-        openFile: function openFile() {
-            // TODO: Custom popup w/ option to save
-            var open = confirm("Are you sure you want to overwrite your current scene?");
-
-            if (open) {
-                reset();
-
-                var reader = new FileReader();
-
-                reader.onload = function (e) {
-                    Importer.load(reader.result, getCurrentContext());
-                    render();
-                };
-
-                reader.readAsText(fileInput.files[0]);
-            }
-        },
-        load: function load(text, context) {
-            //
-            // Why?!?!
-            // 
-            // // Remove all whitespace from XML file except for header
-            // var header = text.substring(0, text.indexOf(">")+1);
-            // text = header + text.substring(text.indexOf(">")+1).replace(/\s/g,'');
-
-            var root = new window.DOMParser().parseFromString(text, "text/xml");
-            if (root.documentElement.nodeName == "parsererror") return;
-
-            var project = getChildNode(root, "project");
-            var icsNode = getChildNode(project, "ics");
-
-            var ics = this.loadICs(icsNode, context);
-
-            var group = this.loadGroup(project, context, ics);
-            context.addObjects(group.objects);
-            context.addWires(group.wires);
-
-            for (var i = 0; i < ics.length; i++) {
-                ICData.add(ics[i]);
-            }context.redistributeUIDs();
-            ICData.redistributeUIDs();
-
-            return group;
-        },
-        loadGroup: function loadGroup(node, context, ics) {
-            var objectsNode = getChildNode(node, "objects");
-            var wiresNode = getChildNode(node, "wires");
-
-            var objects = [];
-            var wires = [];
-
-            for (var i = 0; i < this.types.length; i++) {
-                var type = this.types[i];
-                var nodes = getChildrenByTagName(objectsNode, type.getXMLName());
-                for (var j = 0; j < nodes.length; j++) {
-                    objects.push(new type(context).load(nodes[j], ics));
-                }
-            }
-
-            var wiresArr = getChildrenByTagName(wiresNode, "wire");
-            for (var i = 0; i < wiresArr.length; i++) {
-                wires.push(new Wire(context).load(wiresArr[i]));
-            }for (var i = 0; i < wires.length; i++) {
-                wires[i].loadConnections(wiresArr[i], objects);
-            }return { objects: objects, wires: wires };
-        },
-        loadICs: function loadICs(node, context) {
-            var ics = [];
-            var icNodes = getChildrenByTagName(node, "ic");
-            for (var i = 0; i < icNodes.length; i++) {
-                var icNode = icNodes[i];
-                var icuid = getIntValue(getChildNode(icNode, "icuid"));
-                var width = getIntValue(getChildNode(icNode, "width"));
-                var height = getIntValue(getChildNode(icNode, "height"));
-
-                var componentsNode = getChildNode(icNode, "components");
-                var group = this.loadGroup(componentsNode, context, ics);
-                var data = ICData.create(group.objects);
-
-                data.icuid = icuid;
-                data.transform.setSize(V(width, height));
-
-                var iports = getChildrenByTagName(getChildNode(icNode, "iports"), "iport");
-                for (var j = 0; j < iports.length; j++) {
-                    data.iports[j] = new IPort().load(iports[j]);
-                }var oports = getChildrenByTagName(getChildNode(icNode, "oports"), "oport");
-                for (var j = 0; j < oports.length; j++) {
-                    data.oports[j] = new OPort().load(oports[j]);
-                }ics.push(data);
-            }
-            return ics;
-        }
-    };
-}();
-
-// UTILS
-function getChildNode(parent, name) {
-    for (var i = 0; i < parent.childNodes.length; i++) {
-        if (parent.childNodes[i].nodeName === name) return parent.childNodes[i];
-    }
-    return undefined;
-}
-function getChildrenByTagName(parent, name) {
-    var children = [];
-    for (var i = 0; i < parent.childNodes.length; i++) {
-        if (parent.childNodes[i].nodeName === name) children.push(parent.childNodes[i]);
-    }
-    return children;
-}
-function getBooleanValue(node, def) {
-    if (node == undefined) return def;
-    return node.childNodes[0].nodeValue === "true" ? true : false;
-}
-function getIntValue(node, def) {
-    if (node == undefined) return def;
-    return parseInt(node.childNodes[0].nodeValue);
-}
-function getFloatValue(node, def) {
-    if (node == undefined) return def;
-    return parseFloat(node.childNodes[0].nodeValue);
-}
-function getStringValue(node, def) {
-    if (node == undefined) return def;
-    return node.childNodes[0].nodeValue;
-}
-"use strict";
-
-var Input = function () {
-    var rawMousePos = new Vector(0, 0);
-    var mousePos = new Vector(0, 0);
-    var prevMousePos = new Vector(0, 0);
-    var worldMousePos = new Vector(0, 0);
-
-    var mouseDown = false;
-    var mouseDownPos = undefined;
-
-    var mouseListeners = [];
-
-    var z = 0;
-
-    var shiftKeyDown = false;
-    var modifierKeyDown = false;
-    var optionKeyDown = false;
-
-    var isDragging = false;
-    var startTapTime = undefined;
-
-    console.log(shiftKeyDown);
-
-    var onKeyDown = function onKeyDown(e) {
-        var code = e.keyCode;
-
-        console.log(shiftKeyDown);
-
-        switch (code) {
-            case SHIFT_KEY:
-                shiftKeyDown = true;
-                break;
-            case CONTROL_KEY:
-            case COMMAND_KEY:
-                modifierKeyDown = true;
-                break;
-            case OPTION_KEY:
-                optionKeyDown = true;
-                getCurrentContext().setCursor("pointer");
-                break;
-            case ENTER_KEY:
-                if (document.activeElement !== document.body) document.activeElement.blur();
-                break;
-        }
-
-        var objects = getCurrentContext().getObjects();
-        for (var i = 0; i < objects.length; i++) {
-            if (objects[i] instanceof Keyboard) objects[i].onKeyDown(code);
-        }
-
-        getCurrentContext().getHistoryManager().onKeyDown(code);
-        if (CurrentTool.onKeyDown(code)) render();
-    };
-    var onKeyUp = function onKeyUp(e) {
-        var code = e.keyCode;
-
-        switch (code) {
-            case SHIFT_KEY:
-                shiftKeyDown = false;
-                break;
-            case CONTROL_KEY:
-            case COMMAND_KEY:
-                modifierKeyDown = false;
-                break;
-            case OPTION_KEY:
-                optionKeyDown = false;
-                getCurrentContext().setCursor("default");
-                break;
-        }
-
-        var objects = getCurrentContext().getObjects();
-        for (var i = 0; i < objects.length; i++) {
-            if (objects[i] instanceof Keyboard) objects[i].onKeyUp(code);
-        }
-
-        if (CurrentTool.onKeyUp(code)) render();
-    };
-    var onDoubleClick = function onDoubleClick(e) {};
-    var onWheel = function onWheel(e) {
-        var camera = getCurrentContext().getCamera();
-        var delta = -e.deltaY / 120.0;
-
-        var factor = 0.95;
-        if (delta < 0) factor = 1 / factor;
-
-        var worldMousePos = camera.getWorldPos(mousePos);
-        camera.zoomBy(factor);
-        var newMousePos = camera.getScreenPos(worldMousePos);
-        var dx = (mousePos.x - newMousePos.x) * camera.zoom;
-        var dy = (mousePos.y - newMousePos.y) * camera.zoom;
-
-        camera.translate(-dx, -dy);
-
-        popup.onWheel();
-
-        render();
-    };
-    var onMouseDown = function onMouseDown(e) {
-        var canvas = getCurrentContext().getRenderer().canvas;
-        var rect = canvas.getBoundingClientRect();
-        isDragging = false;
-        startTapTime = Date.now();
-        mouseDown = true;
-        mouseDownPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
-
-        if (e.button === LEFT_MOUSE_BUTTON) {
-            var shouldRender = false;
-            contextmenu.hide();
-            shouldRender = CurrentTool.onMouseDown(shouldRender);
-            for (var i = 0; i < mouseListeners.length; i++) {
-                var listener = mouseListeners[i];
-                if (!listener.disabled && listener.onMouseDown(shouldRender)) shouldRender = true;
-            }
-            if (shouldRender) render();
-        }
-    };
-    var onMouseMove = function onMouseMove(e) {
-        var canvas = getCurrentContext().getRenderer().canvas;
-        var camera = getCurrentContext().getCamera();
-        var rect = canvas.getBoundingClientRect();
-
-        prevMousePos.x = mousePos.x;
-        prevMousePos.y = mousePos.y;
-
-        rawMousePos = new Vector(e.clientX, e.clientY);
-        mousePos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
-        worldMousePos = camera.getWorldPos(mousePos);
-
-        isDragging = mouseDown && Date.now() - startTapTime > 50;
-
-        var shouldRender = false;
-
-        if (optionKeyDown && isDragging) {
-            var pos = new Vector(mousePos.x, mousePos.y);
-            var dPos = mouseDownPos.sub(pos);
-            camera.translate(camera.zoom * dPos.x, camera.zoom * dPos.y);
-            mouseDownPos = mousePos;
-
-            popup.onMove();
-            shouldRender = true;
-        }
-
-        shouldRender = CurrentTool.onMouseMove(shouldRender) || shouldRender;
-        for (var i = 0; i < mouseListeners.length; i++) {
-            var listener = mouseListeners[i];
-            if (!listener.disabled && listener.onMouseMove(shouldRender)) shouldRender = true;
-        }
-        if (shouldRender) render();
-    };
-    var onMouseUp = function onMouseUp(e) {
-        mouseDown = false;
-
-        var shouldRender = false;
-        shouldRender = CurrentTool.onMouseUp(shouldRender);
-        for (var i = 0; i < mouseListeners.length; i++) {
-            var listener = mouseListeners[i];
-            if (!listener.disabled && listener.onMouseUp(shouldRender)) shouldRender = true;
-        }
-        if (shouldRender) render();
-    };
-    var onClick = function onClick(e) {
-        var shouldRender = false;
-        shouldRender = CurrentTool.onClick(shouldRender);
-        for (var i = 0; i < mouseListeners.length; i++) {
-            var listener = mouseListeners[i];
-            if (!listener.disabled && listener.onClick(shouldRender)) shouldRender = true;
-        }
-        if (shouldRender) render();
-    };
-
-    window.addEventListener('keydown', function (e) {
-        onKeyDown(e);
-    }, false);
-    window.addEventListener('keyup', function (e) {
-        onKeyUp(e);
-    }, false);
-
-    return {
-        registerContext: function registerContext(ctx) {
-            var canvas = ctx.getRenderer().canvas;
-            canvas.addEventListener('click', function (e) {
-                return onClick(e);
-            }, false);
-            canvas.addEventListener('dblclick', function (e) {
-                return onDoubleClick(e);
-            }, false);
-            // if (browser.name !== "Firefox")
-            canvas.addEventListener('wheel', function (e) {
-                return onWheel(e);
-            }, false);
-            // else
-            //     canvas.addEventListener('DOMMouseScroll', e => onWheel(e), false);
-            canvas.addEventListener('mousedown', function (e) {
-                return onMouseDown(e);
-            }, false);
-            canvas.addEventListener('mouseup', function (e) {
-                return onMouseUp(e);
-            }, false);
-            canvas.addEventListener('mousemove', function (e) {
-                return onMouseMove(e);
-            }, false);
-            canvas.addEventListener('mouseenter', function (e) {
-                if (PlaceItemController.drag) {
-                    onMouseMove(e);onClick(e);PlaceItemController.drag = false;
-                }
-            }, false);
-            canvas.addEventListener("mouseleave", function (e) {
-                if (mouseDown) {
-                    onMouseUp(e);onClick(e);
-                }
-            });
-
-            canvas.addEventListener("contextmenu", function (e) {
-                contextmenu.show(e);
-                e.preventDefault();
-            });
-        },
-        addMouseListener: function addMouseListener(l) {
-            mouseListeners.push(l);
-        },
-        getWorldMousePos: function getWorldMousePos() {
-            return V(worldMousePos);
-        },
-        getRawMousePos: function getRawMousePos() {
-            return V(rawMousePos);
-        },
-        getShiftKeyDown: function getShiftKeyDown() {
-            return shiftKeyDown;
-        },
-        getModifierKeyDown: function getModifierKeyDown() {
-            return modifierKeyDown;
-        },
-        getOptionKeyDown: function getOptionKeyDown() {
-            return optionKeyDown;
-        },
-        getIsDragging: function getIsDragging() {
-            return isDragging;
-        }
-    };
-}();
-"use strict";
-
-var ItemNavController = function () {
-    var tab = document.getElementById("open-items-tab");
-    var container = document.getElementById("items");
-
-    var open = function open() {
-        container.style.width = ITEMNAV_WIDTH + "px";
-        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
-        tab.style.borderColor = "rgba(153, 153, 153, 0.0)";
-        tab.style.backgroundColor = "rgba(200, 200, 200, 0.0)";
-        tab.style.fontSize = "2.5em";
-        tab.innerHTML = "&times;";
-    };
-    var close = function close() {
-        container.style.width = "0px";
-        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
-        tab.style.borderColor = "rgba(153, 153, 153, 0.7)";
-        tab.style.backgroundColor = "rgba(200, 200, 200, 0.7)";
-        tab.style.fontSize = "2em";
-        tab.innerHTML = "&#9776;";
-    };
-
-    return {
-        disabled: false,
-        isOpen: false,
-        toggle: function toggle() {
-            if (this.isOpen) {
-                this.isOpen = false;
-                close();
-            } else {
-                this.isOpen = true;
-                open();
-            }
-
-            // if (popup)
-            //     popup.onMove();
-        },
-        getTabOffset: function getTabOffset() {
-            return this.isOpen ? ITEMNAV_WIDTH - tab.offsetWidth : 0;
-        }
-    };
-}();
-// ItemNavController.toggle();
-"use strict";
-
-var PlaceItemController = function () {
-    return {
-        disabled: false,
-        drag: false,
-        place: function place(item, not) {
-            if (not) item.not = not;
-            var canvas = getCurrentContext().getRenderer().canvas;
-            var rect = canvas.getBoundingClientRect();
-            itemTool.activate(item, getCurrentContext());
-        },
-        onDragEnd: function onDragEnd(event) {
-            this.drag = true;
-            event.srcElement.parentElement.onclick();
-        }
-    };
-}();
-'use strict';
-
-var SelectionBox = function () {
-    var pos1 = undefined; // First corner
-    var pos2 = undefined; // Second corner
-
-    var getSelections = function getSelections() {
-        var objects = getCurrentContext().getObjects();
-        var selections = [];
-        if (pos1 != undefined) {
-            var trans = new Transform(V((pos1.x + pos2.x) / 2, (pos1.y + pos2.y) / 2), V(Math.abs(pos2.x - pos1.x), Math.abs(pos2.y - pos1.y)), 0, getCurrentContext().getCamera());
-            for (var i = 0; i < objects.length; i++) {
-                var obj = objects[i];
-                var t = obj.selectionBoxTransform != undefined ? obj.selectionBoxTransform : obj.transform;
-                if (transformContains(t, trans)) {
-                    selections.push(obj);
-                } else if (obj.inputs != undefined && obj.outputs != undefined) {
-                    // Check if an iport or oport is selected
-                    for (var j = 0; j < obj.inputs.length; j++) {
-                        var input = obj.inputs[j];
-                        if (rectContains(trans, input.getPos())) selections.push(input);
-                    }
-                    for (var j = 0; j < obj.outputs.length; j++) {
-                        var output = obj.outputs[j];
-                        if (rectContains(trans, output.getPos())) selections.push(output);
-                    }
-                }
-            }
-        }
-        return selections;
-    };
-
-    return {
-        disabled: false,
-        onMouseDown: function onMouseDown(somethingHappened) {
-            var objects = getCurrentContext().getObjects();
-            var wires = getCurrentContext().getWires();
-            var worldMousePos = Input.getWorldMousePos();
-
-            // Make sure nothing but blank canvas was clicked
-            if (somethingHappened || !selectionTool.isActive || Input.getOptionKeyDown()) return;
-            for (var i = 0; i < objects.length; i++) {
-                var obj = objects[i];
-                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos) || obj.oPortContains(worldMousePos) !== -1 || obj.iPortContains(worldMousePos) !== -1) return;
-            }
-            for (var i = 0; i < wires.length; i++) {
-                var wire = wires[i];
-                if (wire.getNearestT(worldMousePos.x, worldMousePos.y) !== -1) return;
-            }
-
-            pos1 = V(worldMousePos);
-            popup.hide();
-        },
-        onMouseMove: function onMouseMove() {
-            var objects = getCurrentContext().getObjects();
-            var worldMousePos = Input.getWorldMousePos();
-
-            if (pos1 != undefined) {
-                pos2 = V(worldMousePos);
-                popup.hide();
-                return true;
-            }
-        },
-        onMouseUp: function onMouseUp() {},
-        onClick: function onClick(somethingHappened) {
-            var objects = getCurrentContext().getObjects();
-            var worldMousePos = Input.getWorldMousePos();
-
-            // Stop selection box
-            if (pos1 != undefined) {
-                pos2 = V(worldMousePos);
-                var selections = getSelections();
-                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
-                selectionTool.select(selections, true);
-                pos1 = undefined;
-                pos2 = undefined;
-                return true;
-            }
-        },
-        draw: function draw(renderer) {
-            var camera = renderer.getCamera();
-            if (pos1 != undefined && pos2 != undefined) {
-                var p1 = camera.getScreenPos(pos1);
-                var p2 = camera.getScreenPos(pos2);
-                var w = p2.x - p1.x,
-                    h = p2.y - p1.y;
-                renderer.save();
-                renderer.context.globalAlpha = 0.4;
-                renderer.rect(p1.x + w / 2, p1.y + h / 2, w, h, '#ffffff', '#6666ff', 2 / camera.zoom);
-                renderer.restore();
-            }
-        }
-    };
-}();
-"use strict";
-
-var SideNavController = function () {
-    var tab = document.getElementById("open-sive-nav-button");
-    var tab2 = document.getElementById("open-items-tab");
-    var container = document.getElementById("sidenav");
-    var otherContent = document.getElementById("content");
-    var overlay = document.getElementById("overlay");
-    if (overlay) {
-        overlay.addEventListener("transitionend", function (event) {
-            if (!SideNavController.isOpen) overlay.style.visibility = "hidden";
-        }, false);
+        this.context = getCurrentContext();
+        // Anytime an action is performed, user should need to save
+        saved = false;
     }
 
-    var open = function open() {
-        container.style.width = SIDENAV_WIDTH + "px";
-        otherContent.style.marginLeft = SIDENAV_WIDTH + "px";
-        overlay.style.visibility = "visible";
-        overlay.style.opacity = "1";
-        overlay.onclick = function () {
-            SideNavController.toggle();
-        };
-    };
-    var close = function close() {
-        container.style.width = "0px";
-        otherContent.style.marginLeft = "0px";
-        overlay.style.opacity = "0";
-        overlay.onclick = function () {};
-    };
+    _createClass(Action, [{
+        key: "undo",
+        value: function undo() {}
+    }, {
+        key: "redo",
+        value: function redo() {}
+    }]);
 
-    return {
-        disabled: false,
-        isOpen: false,
-        toggle: function toggle() {
-            if (this.isOpen) {
-                this.isOpen = false;
-                close();
-            } else {
-                this.isOpen = true;
-                open();
-            }
-        },
-        getWidth: function getWidth() {
-            return this.isOpen ? SIDENAV_WIDTH : 0;
-        }
-    };
+    return Action;
 }();
-// SideNavController.toggle();
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var Tool = function () {
-    function Tool() {
-        _classCallCheck(this, Tool);
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-        this.isActive = false;
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var DeleteAction = function (_Action) {
+    _inherits(DeleteAction, _Action);
+
+    function DeleteAction(obj, oldinput, oldconnection) {
+        _classCallCheck(this, DeleteAction);
+
+        var _this = _possibleConstructorReturn(this, (DeleteAction.__proto__ || Object.getPrototypeOf(DeleteAction)).call(this));
+
+        _this.obj = obj;
+        _this.oldinput = oldinput;
+        _this.oldconnection = oldconnection;
+        return _this;
     }
 
-    _createClass(Tool, [{
-        key: "activate",
-        value: function activate() {
-            if (CurrentTool) CurrentTool.deactivate();
-
-            CurrentTool = this;
-            this.isActive = true;
-            render();
+    _createClass(DeleteAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.add(this.obj);
+            if (this.oldinput != undefined) this.oldinput.connect(this.obj);
+            if (this.oldconnection != undefined) this.obj.connect(this.oldconnection);
         }
     }, {
-        key: "deactivate",
-        value: function deactivate() {
-            this.isActive = false;
+        key: "redo",
+        value: function redo() {
+            this.obj.remove();
         }
-    }, {
-        key: "onKeyDown",
-        value: function onKeyDown(code) {}
-    }, {
-        key: "onKeyUp",
-        value: function onKeyUp(code) {}
-    }, {
-        key: "onMouseDown",
-        value: function onMouseDown() {}
-    }, {
-        key: "onMouseMove",
-        value: function onMouseMove() {}
-    }, {
-        key: "onMouseUp",
-        value: function onMouseUp() {}
-    }, {
-        key: "onClick",
-        value: function onClick() {}
-    }, {
-        key: "draw",
-        value: function draw() {}
     }]);
 
-    return Tool;
-}();
-
-var CurrentTool;
-'use strict';
-
-var TransformController = function () {
-    var pressedObj = undefined;
-
-    var isDragging = false;
-    var isRotating = false;
-
-    var dragPos = V(0, 0);
-    var dragObjects = [];
-
-    var startAngle = 0;
-    var prevAngle = 0;
-    var realAngles = [];
-    var rotateObjects = [];
-
-    var startTransforms = []; // For undoing
-
-    var drag = function drag(pos, shift) {
-        var dPos = V(pos).sub(pressedObj.getPos()).sub(dragPos);
-        for (var i = 0; i < dragObjects.length; i++) {
-            var obj = dragObjects[i];
-            var newPos = obj.getPos().add(dPos);
-            if (shift) {
-                newPos = V(Math.floor(newPos.x / GRID_SIZE + 0.5) * GRID_SIZE, Math.floor(newPos.y / GRID_SIZE + 0.5) * GRID_SIZE);
-            }
-            obj.setPos(newPos);
-        }
-        selectionTool.recalculateMidpoint();
-    };
-    var rotate = function rotate(pos, shift) {
-        var origin = selectionTool.midpoint;
-        var dAngle = Math.atan2(pos.y - origin.y, pos.x - origin.x) - prevAngle;
-        for (var i = 0; i < rotateObjects.length; i++) {
-            var newAngle = realAngles[i] + dAngle;
-            realAngles[i] = newAngle;
-            if (shift) newAngle = Math.floor(newAngle / (Math.PI / 4)) * Math.PI / 4;
-            rotateObjects[i].setRotationAbout(newAngle, origin);
-        }
-        prevAngle = dAngle + prevAngle;
-    };
-
-    return {
-        disabled: false,
-        startDrag: function startDrag(obj, worldMousePos) {
-            if (!obj.selected) {
-                selectionTool.deselectAll(true);
-                selectionTool.select([obj], true);
-            }
-            dragObjects = selectionTool.selections;
-
-            startTransforms = [];
-            for (var i = 0; i < dragObjects.length; i++) {
-                if (!dragObjects[i].transform) return true;
-                startTransforms[i] = dragObjects[i].transform.copy();
-            }
-            isDragging = true;
-            dragPos = worldMousePos.copy().sub(obj.getPos());
-            pressedObj = obj;
-            popup.hide();
-            return true;
-        },
-        startRotation: function startRotation(objs, pos) {
-            rotateObjects = objs;
-            realAngles = [];
-            startTransforms = [];
-            for (var i = 0; i < rotateObjects.length; i++) {
-                if (!rotateObjects[i].transform) return true;
-                realAngles[i] = rotateObjects[i].getAngle();
-                startTransforms[i] = rotateObjects[i].transform.copy();
-            }
-            isRotating = true;
-            startAngle = Math.atan2(pos.y - selectionTool.midpoint.y, pos.x - selectionTool.midpoint.x);
-            prevAngle = startAngle;
-            popup.hide();
-            return true;
-        },
-
-        onMouseDown: function onMouseDown() {
-            var objects = getCurrentContext().getObjects();
-            var worldMousePos = Input.getWorldMousePos();
-
-            // Check if rotation circle was pressed
-            if (!isRotating && selectionTool.selections.length > 0) {
-                var d = worldMousePos.sub(selectionTool.midpoint).len2();
-                if (d <= ROTATION_CIRCLE_R2 && d >= ROTATION_CIRCLE_R1) {
-                    return this.startRotation(selectionTool.selections, worldMousePos);
-                }
-            }
-
-            // Go through objects backwards since objects on top are in the back
-            for (var i = objects.length - 1; i >= 0; i--) {
-                var obj = objects[i];
-
-                // Check if object's selection box was pressed
-                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos)) {
-                    pressedObj = obj;
-                    return;
-                }
-            }
-        },
-        onMouseMove: function onMouseMove() {
-            var objects = getCurrentContext().getObjects();
-            var worldMousePos = Input.getWorldMousePos();
-
-            // Begin dragging
-            if (!isDragging && pressedObj != undefined) {
-                return this.startDrag(pressedObj, worldMousePos);
-            }
-
-            // Actually move the object(s)
-            if (isDragging) {
-                drag(worldMousePos, Input.getShiftKeyDown());
-                return true;
-            }
-            if (isRotating) {
-                rotate(worldMousePos, Input.getShiftKeyDown());
-                return true;
-            }
-        },
-        onMouseUp: function onMouseUp() {
-            pressedObj = undefined;
-
-            // Stop dragging
-            if (isDragging) {
-                // Add transform action
-                getCurrentContext().addAction(createTransformAction(dragObjects, startTransforms));
-                isDragging = false;
-                return true;
-            }
-
-            // Stop rotating
-            if (isRotating) {
-                // Add transform action
-                getCurrentContext().addAction(createTransformAction(rotateObjects, startTransforms));
-                isRotating = false;
-                return true;
-            }
-        },
-        onClick: function onClick() {},
-        draw: function draw(renderer) {
-            // Draw rotation circle
-            var camera = renderer.getCamera();
-            var pos = camera.getScreenPos(selectionTool.midpoint);
-            var r = ROTATION_CIRCLE_RADIUS / camera.zoom;
-            if (isRotating) {
-                renderer.save();
-                renderer.context.fillStyle = '#fff';
-                renderer.context.strokeStyle = '#000';
-                renderer.context.lineWidth = 5;
-                renderer.context.globalAlpha = 0.4;
-                renderer.context.beginPath();
-                renderer.context.moveTo(pos.x, pos.y);
-                var da = (prevAngle - startAngle) % (2 * Math.PI);
-                if (da < 0) da += 2 * Math.PI;
-                renderer.context.arc(pos.x, pos.y, r, startAngle, prevAngle, da > Math.PI);
-                renderer.context.fill();
-                renderer.context.closePath();
-                renderer.restore();
-            }
-        }
-    };
-}();
+    return DeleteAction;
+}(Action);
 "use strict";
 
-var WireController = function () {
-    var pressedPort = undefined;
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-    var pressedWire = undefined;
-    var wireSplitPoint = -1;
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-    return {
-        disabled: false,
-        onMouseDown: function onMouseDown(somethingHappened) {
-            var objects = getCurrentContext().getObjects();
-            var wires = getCurrentContext().getWires();
-            var worldMousePos = Input.getWorldMousePos();
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
 
-            // Make sure nothing else has happened
-            if (somethingHappened) return;
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-            // Check if a IOPort was clicked to start creating new wire
-            for (var i = objects.length - 1; i >= 0; i--) {
-                var obj = objects[i];
+var GroupAction = function (_Action) {
+    _inherits(GroupAction, _Action);
 
-                // Check if port was clicked, then activate wire tool
-                var ii;
-                if ((ii = obj.oPortContains(worldMousePos)) !== -1) {
-                    pressedPort = obj.outputs[ii];
-                    return;
-                }
-                if ((ii = obj.iPortContains(worldMousePos)) !== -1) {
-                    pressedPort = obj.inputs[ii];
-                    return;
-                }
-            }
+    function GroupAction() {
+        _classCallCheck(this, GroupAction);
 
-            // Check if a wire was pressed
-            for (var i = 0; i < wires.length; i++) {
-                var wire = wires[i];
-                var t;
-                if ((t = wire.getNearestT(worldMousePos.x, worldMousePos.y)) !== -1) {
-                    pressedWire = wire;
-                    wireSplitPoint = t;
-                    return true;
-                }
-            }
-        },
-        onMouseMove: function onMouseMove(somethingHappened) {
-            var worldMousePos = Input.getWorldMousePos();
+        var _this = _possibleConstructorReturn(this, (GroupAction.__proto__ || Object.getPrototypeOf(GroupAction)).call(this));
 
-            // Make sure nothing else has happened
-            if (somethingHappened) return;
+        _this.actions = [];
+        return _this;
+    }
 
-            // Begin dragging new wire
-            if (pressedPort != undefined) {
-                wiringTool.activate(pressedPort, getCurrentContext());
-                pressedPort = undefined;
-                return true;
-            }
-
-            // Begin splitting wire
-            if (pressedWire != undefined) {
-                pressedWire.split(wireSplitPoint);
-                var action = new SplitWireAction(pressedWire);
-                getCurrentContext().addAction(action);
-                selectionTool.deselectAll(true);
-                selectionTool.select([pressedWire.connection], true);
-                TransformController.startDrag(pressedWire.connection, worldMousePos);
-                pressedWire = undefined;
-                return true;
-            }
-        },
-        onMouseUp: function onMouseUp() {},
-        onClick: function onClick(somethingHappened) {
-            // Make sure nothing else has happened
-            if (somethingHappened) {
-                pressedPort = undefined;
-                pressedWire = undefined;
-                return;
-            }
-
-            // Clicking also begins dragging
-            if (pressedPort != undefined) {
-                wiringTool.activate(pressedPort, getCurrentContext());
-                pressedPort = undefined;
-                return true;
-            }
-
-            // Select wire
-            if (pressedWire != undefined) {
-                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
-                selectionTool.select([pressedWire], true);
-                pressedWire = undefined;
-                return true;
+    _createClass(GroupAction, [{
+        key: "add",
+        value: function add(action) {
+            this.actions.push(action);
+        }
+    }, {
+        key: "undo",
+        value: function undo() {
+            for (var i = this.actions.length - 1; i >= 0; i--) {
+                this.actions[i].undo();
             }
         }
-    };
-}();
+    }, {
+        key: "redo",
+        value: function redo() {
+            for (var i = 0; i < this.actions.length; i++) {
+                this.actions[i].redo();
+            }
+        }
+    }]);
+
+    return GroupAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PlaceAction = function (_Action) {
+    _inherits(PlaceAction, _Action);
+
+    function PlaceAction(obj) {
+        _classCallCheck(this, PlaceAction);
+
+        var _this = _possibleConstructorReturn(this, (PlaceAction.__proto__ || Object.getPrototypeOf(PlaceAction)).call(this));
+
+        _this.obj = obj;
+        return _this;
+    }
+
+    _createClass(PlaceAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.obj);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.addObject(this.obj);
+        }
+    }]);
+
+    return PlaceAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PlaceWireAction = function (_Action) {
+    _inherits(PlaceWireAction, _Action);
+
+    function PlaceWireAction(wire) {
+        _classCallCheck(this, PlaceWireAction);
+
+        var _this = _possibleConstructorReturn(this, (PlaceWireAction.__proto__ || Object.getPrototypeOf(PlaceWireAction)).call(this));
+
+        _this.wire = wire;
+        _this.input = _this.wire.input;
+        _this.connection = _this.wire.connection;
+        return _this;
+    }
+
+    _createClass(PlaceWireAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.wire);
+            this.wire.disconnect();
+            this.wire.input.disconnect(this.wire);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.add(this.wire);
+            this.wire.connect(this.connection);
+            this.input.connect(this.wire);
+        }
+    }]);
+
+    return PlaceWireAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectAction = function (_Action) {
+    _inherits(SelectAction, _Action);
+
+    function SelectAction(obj, flip) {
+        _classCallCheck(this, SelectAction);
+
+        var _this = _possibleConstructorReturn(this, (SelectAction.__proto__ || Object.getPrototypeOf(SelectAction)).call(this));
+
+        _this.obj = obj;
+        _this.flip = flip;
+        return _this;
+    }
+
+    _createClass(SelectAction, [{
+        key: "undo",
+        value: function undo() {
+            if (this.flip) this.reselect();else this.deselect();
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            if (this.flip) this.deselect();else this.reselect();
+        }
+    }, {
+        key: "reselect",
+        value: function reselect() {
+            selectionTool.select([this.obj]);
+        }
+    }, {
+        key: "deselect",
+        value: function deselect() {
+            selectionTool.deselect([this.obj]);
+        }
+    }]);
+
+    return SelectAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SplitWireAction = function (_Action) {
+    _inherits(SplitWireAction, _Action);
+
+    function SplitWireAction(wire) {
+        _classCallCheck(this, SplitWireAction);
+
+        var _this = _possibleConstructorReturn(this, (SplitWireAction.__proto__ || Object.getPrototypeOf(SplitWireAction)).call(this));
+
+        _this.wireport = wire.connection;
+        _this.wire = wire;
+        _this.newwire = _this.wireport.connection;
+        _this.connection = _this.newwire.connection;
+        return _this;
+    }
+
+    _createClass(SplitWireAction, [{
+        key: "undo",
+        value: function undo() {
+            this.context.remove(this.wireport);
+            this.context.remove(this.newwire);
+
+            this.wire.disconnect();
+            this.newwire.disconnect();
+
+            this.wire.connect(this.connection);
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.context.add(this.wireport);
+            this.context.add(this.newwire);
+
+            this.wire.disconnect();
+
+            this.wire.connect(this.wireport);
+            this.newwire.connect(this.connection);
+        }
+    }]);
+
+    return SplitWireAction;
+}(Action);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var TransformAction = function (_Action) {
+    _inherits(TransformAction, _Action);
+
+    function TransformAction(obj, t0, t1) {
+        _classCallCheck(this, TransformAction);
+
+        var _this = _possibleConstructorReturn(this, (TransformAction.__proto__ || Object.getPrototypeOf(TransformAction)).call(this));
+
+        _this.obj = obj;
+        _this.t0 = t0;
+        _this.t1 = t1;
+        return _this;
+    }
+
+    _createClass(TransformAction, [{
+        key: "undo",
+        value: function undo() {
+            this.obj.setTransform(this.t0);
+            this.updatePopup();
+        }
+    }, {
+        key: "redo",
+        value: function redo() {
+            this.obj.setTransform(this.t1);
+            this.updatePopup();
+        }
+    }, {
+        key: "updatePopup",
+        value: function updatePopup() {
+            if (this.obj.selected) {
+                selectionTool.recalculateMidpoint();
+                popup.onMove();
+            }
+        }
+    }]);
+
+    return TransformAction;
+}(Action);
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -1432,6 +781,880 @@ var HistoryManager = function () {
     }]);
 
     return HistoryManager;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var BezierCurve = function () {
+    function BezierCurve(p1, p2, c1, c2) {
+        _classCallCheck(this, BezierCurve);
+
+        this.p1 = V(p1.x, p1.y);
+        this.p2 = V(p2.x, p2.y);
+        this.c1 = V(c1.x, c1.y);
+        this.c2 = V(c2.x, c2.y);
+        this.dirty = true;
+        this.boundingBox = new Transform(0, 0, 0, getCurrentContext().getCamera());
+    }
+
+    _createClass(BezierCurve, [{
+        key: "update",
+        value: function update(p1, p2, c1, c2) {
+            this.p1.x = p1.x;
+            this.p1.y = p1.y;
+            this.p2.x = p2.x;
+            this.p2.y = p2.y;
+            this.c1.x = c1.x;
+            this.c1.y = c1.y;
+            this.c2.x = c2.x;
+            this.c2.y = c2.y;
+        }
+    }, {
+        key: "updateBoundingBox",
+        value: function updateBoundingBox() {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            var min = V(0, 0);
+            var max = V(0, 0);
+            var end1 = this.getPos(0);
+            var end2 = this.getPos(1);
+            var a = this.c1.sub(this.c2).scale(3).add(this.p2.sub(this.p1));
+            var b = this.p1.sub(this.c1.scale(2).add(this.c2)).scale(2);
+            var c = this.c1.sub(this.p1);
+
+            var discriminant1 = b.y * b.y - 4 * a.y * c.y;
+            discriminant1 = discriminant1 >= 0 ? Math.sqrt(discriminant1) : -1;
+            var t1 = discriminant1 !== -1 ? clamp((-b.y + discriminant1) / (2 * a.y), 0, 1) : 0;
+            var t2 = discriminant1 !== -1 ? clamp((-b.y - discriminant1) / (2 * a.y), 0, 1) : 0;
+            max.y = Math.max(this.getY(t1), this.getY(t2), end1.y, end2.y);
+            min.y = Math.min(this.getY(t1), this.getY(t2), end1.y, end2.y);
+
+            var discriminant2 = b.x * b.x - 4 * a.x * c.x;
+            discriminant2 = discriminant2 >= 0 ? Math.sqrt(discriminant2) : -1;
+            var t3 = discriminant2 !== -1 ? clamp((-b.x + discriminant2) / (2 * a.x), 0, 1) : 0;
+            var t4 = discriminant2 !== -1 ? clamp((-b.x - discriminant2) / (2 * a.x), 0, 1) : 0;
+            max.x = Math.max(this.getX(t1), this.getX(t2), end1.x, end2.x);
+            min.x = Math.min(this.getX(t1), this.getX(t2), end1.x, end2.x);
+
+            this.boundingBox.setSize(V(max.x - min.x, max.y - min.y));
+            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
+        }
+    }, {
+        key: "draw",
+        value: function draw(style, size, renderer) {
+            var camera = renderer.parent.camera;
+
+            var p1 = camera.getScreenPos(this.p1);
+            var p2 = camera.getScreenPos(this.p2);
+            var c1 = camera.getScreenPos(this.c1);
+            var c2 = camera.getScreenPos(this.c2);
+
+            renderer.curve(p1.x, p1.y, p2.x, p2.y, c1.x, c1.y, c2.x, c2.y, style, size);
+        }
+    }, {
+        key: "getX",
+        value: function getX(t) {
+            var it = 1 - t;
+            return this.p1.x * it * it * it + 3 * this.c1.x * t * it * it + 3 * this.c2.x * t * t * it + this.p2.x * t * t * t;
+        }
+    }, {
+        key: "getY",
+        value: function getY(t) {
+            var it = 1 - t;
+            return this.p1.y * it * it * it + 3 * this.c1.y * t * it * it + 3 * this.c2.y * t * t * it + this.p2.y * t * t * t;
+        }
+    }, {
+        key: "getPos",
+        value: function getPos(t) {
+            return V(this.getX(t), this.getY(t));
+        }
+    }, {
+        key: "getDX",
+        value: function getDX(t) {
+            var it = 1 - t;
+            return -3 * this.p1.x * it * it + 3 * this.c1.x * it * (1 - 3 * t) + 3 * this.c2.x * t * (2 - 3 * t) + 3 * this.p2.x * t * t;
+        }
+    }, {
+        key: "getDY",
+        value: function getDY(t) {
+            var it = 1 - t;
+            return -3 * this.p1.y * it * it + 3 * this.c1.y * it * (1 - 3 * t) + 3 * this.c2.y * t * (2 - 3 * t) + 3 * this.p2.y * t * t;
+        }
+    }, {
+        key: "getVel",
+        value: function getVel(t) {
+            return V(this.getDX(t), this.getDY(t));
+        }
+    }, {
+        key: "getDDX",
+        value: function getDDX(t) {
+            var m = -this.p1.x + 3 * this.c1.x - 3 * this.c2.x + this.p2.x;
+            var b = this.p1.x - 2 * this.c1.x + this.c2.x;
+            return 6 * (m * t + b);
+        }
+    }, {
+        key: "getDDY",
+        value: function getDDY(t) {
+            var m = -this.p1.y + 3 * this.c1.y - 3 * this.c2.y + this.p2.y;
+            var b = this.p1.y - 2 * this.c1.y + this.c2.y;
+            return 6 * (m * t + b);
+        }
+    }, {
+        key: "getDist",
+        value: function getDist(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+    }, {
+        key: "getDist2",
+        value: function getDist2(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return dx * dx + dy * dy;
+        }
+    }, {
+        key: "getDistDenominator",
+        value: function getDistDenominator(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return dx * dx + dy * dy;
+        }
+    }, {
+        key: "getDistDenominatorDerivative",
+        value: function getDistDenominatorDerivative(t, mx, my) {
+            return 2 * (this.getX(t) - mx) * this.getDX(t) + 2 * (this.getY(t) - my) * this.getDY(t);
+        }
+    }, {
+        key: "getDistNumerator",
+        value: function getDistNumerator(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            return this.getDX(t) * dx + this.getDY(t) * dy;
+        }
+    }, {
+        key: "getDistNumeratorDerivative",
+        value: function getDistNumeratorDerivative(t, mx, my) {
+            var dx = this.getX(t) - mx;
+            var dy = this.getY(t) - my;
+            var dbx = this.getDX(t);
+            var dby = this.getDY(t);
+            return dbx * dbx + dx * this.getDDX(t) + dby * dby + dy * this.getDDY(t);
+        }
+    }, {
+        key: "getNearestT",
+        value: function getNearestT(mx, my) {
+            var _this = this;
+
+            var minDist = 1e20;
+            var t0 = -1;
+            for (var tt = 0; tt <= 1.0; tt += 1.0 / WIRE_DIST_ITERATIONS) {
+                var dist = this.getDist(tt, mx, my);
+                if (dist < minDist) {
+                    t0 = tt;
+                    minDist = dist;
+                }
+            }
+
+            // Newton's method to find parameter for when slope is undefined AKA denominator function = 0
+            var t1 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
+                return _this.getDistDenominator(t, x, y);
+            }, function (t, x, y) {
+                return _this.getDistDenominatorDerivative(t, x, y);
+            });
+            if (this.getDist2(t1, mx, my) < WIRE_DIST_THRESHOLD2) return t1;
+
+            // Newton's method to find parameter for when slope is 0 AKA numerator function = 0
+            var t2 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
+                return _this.getDistNumerator(t, x, y);
+            }, function (t, x, y) {
+                return _this.getDistNumeratorDerivative(t, x, y);
+            });
+            if (this.getDist2(t2, mx, my) < WIRE_DIST_THRESHOLD2) return t2;
+
+            return -1;
+        }
+    }, {
+        key: "getBoundingBox",
+        value: function getBoundingBox() {
+            this.updateBoundingBox();
+            return this.boundingBox;
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return new BezierCurve(this.p1.copy(), this.p2.copy(), this.c1.copy(), this.c2.copy());
+        }
+    }, {
+        key: "writeTo",
+        value: function writeTo(node) {
+            var bezierNode = createChildNode(node, "bezier");
+            createTextElement(bezierNode, "p1x", this.p1.x);
+            createTextElement(bezierNode, "p1y", this.p1.y);
+            createTextElement(bezierNode, "p2x", this.p2.x);
+            createTextElement(bezierNode, "p2y", this.p2.y);
+            createTextElement(bezierNode, "c1x", this.c1.x);
+            createTextElement(bezierNode, "c1y", this.c1.y);
+            createTextElement(bezierNode, "c2x", this.c2.x);
+            createTextElement(bezierNode, "c2y", this.c2.y);
+        }
+    }, {
+        key: "load",
+        value: function load(node) {
+            var p1 = V(getFloatValue(getChildNode(node, "p1x")), getFloatValue(getChildNode(node, "p1y")));
+            var p2 = V(getFloatValue(getChildNode(node, "p2x")), getFloatValue(getChildNode(node, "p2y")));
+            var c1 = V(getFloatValue(getChildNode(node, "c1x")), getFloatValue(getChildNode(node, "c1y")));
+            var c2 = V(getFloatValue(getChildNode(node, "c2x")), getFloatValue(getChildNode(node, "c2y")));
+            this.update(p1, p2, c1, c2);
+        }
+    }]);
+
+    return BezierCurve;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Matrix2x3 = function () {
+    function Matrix2x3(other) {
+        _classCallCheck(this, Matrix2x3);
+
+        this.mat = [];
+        this.identity();
+        if (other instanceof Matrix2x3) {
+            for (var i = 0; i < 2 * 3; i++) {
+                this.mat[i] = other.mat[i];
+            }
+        }
+    }
+
+    _createClass(Matrix2x3, [{
+        key: "zero",
+        value: function zero() {
+            for (var i = 0; i < 2 * 3; i++) {
+                this.mat[i] = 0;
+            }return this;
+        }
+    }, {
+        key: "identity",
+        value: function identity() {
+            this.zero();
+
+            this.mat[0] = 1.0;
+            this.mat[3] = 1.0;
+
+            return this;
+        }
+    }, {
+        key: "mul",
+        value: function mul(v) {
+            var result = V(0, 0);
+            result.x = this.mat[0] * v.x + this.mat[2] * v.y + this.mat[4];
+            result.y = this.mat[1] * v.x + this.mat[3] * v.y + this.mat[5];
+            return result;
+        }
+    }, {
+        key: "mult",
+        value: function mult(m) {
+            var result = new Matrix2x3();
+            result.mat[0] = this.mat[0] * m.mat[0] + this.mat[2] * m.mat[1];
+            result.mat[1] = this.mat[1] * m.mat[0] + this.mat[3] * m.mat[1];
+            result.mat[2] = this.mat[0] * m.mat[2] + this.mat[2] * m.mat[3];
+            result.mat[3] = this.mat[1] * m.mat[2] + this.mat[3] * m.mat[3];
+            result.mat[4] = this.mat[0] * m.mat[4] + this.mat[2] * m.mat[5] + this.mat[4];
+            result.mat[5] = this.mat[1] * m.mat[4] + this.mat[3] * m.mat[5] + this.mat[5];
+            return result;
+        }
+    }, {
+        key: "translate",
+        value: function translate(v) {
+            this.mat[4] += this.mat[0] * v.x + this.mat[2] * v.y;
+            this.mat[5] += this.mat[1] * v.x + this.mat[3] * v.y;
+        }
+    }, {
+        key: "rotate",
+        value: function rotate(theta) {
+            var c = Math.cos(theta);
+            var s = Math.sin(theta);
+            var m11 = this.mat[0] * c + this.mat[2] * s;
+            var m12 = this.mat[1] * c + this.mat[3] * s;
+            var m21 = this.mat[0] * -s + this.mat[2] * c;
+            var m22 = this.mat[1] * -s + this.mat[3] * c;
+            this.mat[0] = m11;
+            this.mat[1] = m12;
+            this.mat[2] = m21;
+            this.mat[3] = m22;
+        }
+    }, {
+        key: "scale",
+        value: function scale(s) {
+            this.mat[0] *= s.x;
+            this.mat[1] *= s.x;
+            this.mat[2] *= s.y;
+            this.mat[3] *= s.y;
+        }
+    }, {
+        key: "inverse",
+        value: function inverse() {
+            var inv = new Array(3 * 2);
+            var det;
+
+            inv[0] = this.mat[3];
+            inv[1] = -this.mat[1];
+            inv[2] = -this.mat[2];
+            inv[3] = this.mat[0];
+            inv[4] = this.mat[2] * this.mat[5] - this.mat[4] * this.mat[3];
+            inv[5] = this.mat[4] * this.mat[1] - this.mat[0] * this.mat[5];
+
+            det = this.mat[0] * this.mat[3] - this.mat[1] * this.mat[2];
+
+            if (det == 0) return undefined;
+
+            det = 1.0 / det;
+
+            var m = new Matrix2x3();
+            for (var i = 0; i < 2 * 3; i++) {
+                m.mat[i] = inv[i] * det;
+            }return m;
+        }
+    }, {
+        key: "print",
+        value: function print() {
+            console.log("[" + this.mat[0].toFixed(3) + ", " + this.mat[2].toFixed(3) + ", " + this.mat[4].toFixed(3) + "]\n" + "[" + this.mat[1].toFixed(3) + ", " + this.mat[3].toFixed(3) + ", " + this.mat[5].toFixed(3) + "]");
+        }
+    }]);
+
+    return Matrix2x3;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Transform = function () {
+    function Transform(pos, size, angle, camera) {
+        _classCallCheck(this, Transform);
+
+        this.parent = undefined;
+        this.pos = V(pos.x, pos.y);
+        this.size = V(size.x, size.y);
+        this.angle = angle;
+        this.scale = V(1, 1);
+        this.corners = [];
+        this.localCorners = [];
+        this.camera = camera;
+        this.dirty = true;
+        this.dirtySize = true;
+        this.dirtyCorners = true;
+        this.updateMatrix();
+    }
+
+    _createClass(Transform, [{
+        key: "updateMatrix",
+        value: function updateMatrix(c) {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            this.matrix = new Matrix2x3();
+            this.matrix.translate(this.pos);
+            this.matrix.rotate(this.angle);
+            this.matrix.scale(this.scale);
+
+            if (this.parent != undefined) this.matrix = this.parent.getMatrix().mult(this.matrix);
+
+            this.inverse = this.matrix.inverse();
+        }
+    }, {
+        key: "updateSize",
+        value: function updateSize() {
+            if (!this.dirtySize) return;
+            this.dirtySize = false;
+
+            this.localCorners = [this.size.scale(V(-0.5, 0.5)), this.size.scale(V(0.5, 0.5)), this.size.scale(V(0.5, -0.5)), this.size.scale(V(-0.5, -0.5))];
+
+            this.radius = Math.sqrt(this.size.x * this.size.x + this.size.y * this.size.y) / 2;
+        }
+    }, {
+        key: "updateCorners",
+        value: function updateCorners() {
+            if (!this.dirtyCorners) return;
+            this.dirtyCorners = false;
+
+            var corners = this.getLocalCorners();
+            for (var i = 0; i < 4; i++) {
+                this.corners[i] = this.toWorldSpace(corners[i]);
+            }
+        }
+    }, {
+        key: "transformCtx",
+        value: function transformCtx(ctx) {
+            this.updateMatrix();
+            var m = new Matrix2x3(this.matrix);
+            var v = this.camera.getScreenPos(V(m.mat[4], m.mat[5]));
+            m.mat[4] = v.x, m.mat[5] = v.y;
+            m.scale(V(1 / this.camera.zoom, 1 / this.camera.zoom));
+            ctx.setTransform(m.mat[0], m.mat[1], m.mat[2], m.mat[3], m.mat[4], m.mat[5]);
+        }
+    }, {
+        key: "rotateAbout",
+        value: function rotateAbout(a, c) {
+            this.setAngle(a);
+            this.setPos(this.pos.sub(c));
+            var cos = Math.cos(a),
+                sin = Math.sin(a);
+            var xx = this.pos.x * cos - this.pos.y * sin;
+            var yy = this.pos.y * cos + this.pos.x * sin;
+            this.setPos(V(xx, yy).add(c));
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setParent",
+        value: function setParent(t) {
+            this.parent = t;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setCamera",
+        value: function setCamera(c) {
+            this.camera = c;
+        }
+    }, {
+        key: "setPos",
+        value: function setPos(p) {
+            this.pos.x = p.x;
+            this.pos.y = p.y;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setAngle",
+        value: function setAngle(a) {
+            this.angle = a;
+            this.dirty = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setScale",
+        value: function setScale(s) {
+            this.scale.x = s.x;
+            this.scale.y = s.y;
+            this.dirty = true;
+        }
+    }, {
+        key: "setSize",
+        value: function setSize(s) {
+            this.size.x = s.x;
+            this.size.y = s.y;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setWidth",
+        value: function setWidth(w) {
+            this.size.x = w;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "setHeight",
+        value: function setHeight(h) {
+            this.size.y = h;
+            this.dirtySize = true;
+            this.dirtyCorners = true;
+        }
+    }, {
+        key: "toLocalSpace",
+        value: function toLocalSpace(v) {
+            // v must be in world coords
+            return this.getInverseMatrix().mul(v);
+        }
+    }, {
+        key: "toWorldSpace",
+        value: function toWorldSpace(v) {
+            // v must be in local coords
+            return this.getMatrix().mul(v);
+        }
+    }, {
+        key: "getPos",
+        value: function getPos() {
+            return V(this.pos.x, this.pos.y);
+        }
+    }, {
+        key: "getAngle",
+        value: function getAngle() {
+            return this.angle;
+        }
+    }, {
+        key: "getScale",
+        value: function getScale() {
+            return V(this.scale.x, this.scale.y);
+        }
+    }, {
+        key: "getSize",
+        value: function getSize() {
+            return this.size;
+        }
+    }, {
+        key: "getRadius",
+        value: function getRadius() {
+            this.updateSize();
+            return this.radius;
+        }
+    }, {
+        key: "getMatrix",
+        value: function getMatrix() {
+            this.updateMatrix();
+            return this.matrix;
+        }
+    }, {
+        key: "getInverseMatrix",
+        value: function getInverseMatrix() {
+            this.updateMatrix();
+            return this.inverse;
+        }
+    }, {
+        key: "getBottomLeft",
+        value: function getBottomLeft() {
+            this.updateCorners();
+            return this.corners[0];
+        }
+    }, {
+        key: "getBottomRight",
+        value: function getBottomRight() {
+            this.updateCorners();
+            return this.corners[1];
+        }
+    }, {
+        key: "getTopRight",
+        value: function getTopRight() {
+            this.updateCorners();
+            return this.corners[2];
+        }
+    }, {
+        key: "getTopLeft",
+        value: function getTopLeft() {
+            this.updateCorners();
+            return this.corners[3];
+        }
+    }, {
+        key: "getCorners",
+        value: function getCorners() {
+            this.updateCorners();
+            return this.corners;
+        }
+    }, {
+        key: "getLocalCorners",
+        value: function getLocalCorners() {
+            this.updateSize();
+            return this.localCorners;
+        }
+    }, {
+        key: "equals",
+        value: function equals(other) {
+            if (!(other instanceof Transform)) return false;
+
+            var m1 = this.getMatrix().mat;
+            var m2 = other.getMatrix().mat;
+            for (var i = 0; i < m1.length; i++) {
+                if (m1[i] !== m2[i]) return false;
+            }
+            return true;
+        }
+    }, {
+        key: "print",
+        value: function print() {
+            this.updateMatrix();
+            this.matrix.print();
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            var trans = new Transform(this.pos.copy(), this.size.copy(), this.angle, this.camera);
+            trans.scale = this.scale.copy();
+            trans.dirty = true;
+            return trans;
+        }
+    }]);
+
+    return Transform;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+// Utility method for a new Vector
+function V(x, y) {
+    return new Vector(x, y);
+}
+
+var Vector = function () {
+    function Vector(x, y) {
+        _classCallCheck(this, Vector);
+
+        this.set(x, y);
+    }
+
+    _createClass(Vector, [{
+        key: "set",
+        value: function set(x, y) {
+            if (x instanceof Vector) {
+                this.x = x.x ? x.x : 0;
+                this.y = x.y ? x.y : 0;
+            } else {
+                this.x = x ? x : 0;
+                this.y = y ? y : 0;
+            }
+        }
+    }, {
+        key: "translate",
+        value: function translate(dx, dy) {
+            if (dx instanceof Vector) this.set(this.add(dx));else this.set(this.x + dx, this.y + dy);
+        }
+    }, {
+        key: "add",
+        value: function add(x, y) {
+            if (x instanceof Vector) return new Vector(this.x + x.x, this.y + x.y);else return new Vector(this.x + x, this.y + y);
+        }
+    }, {
+        key: "sub",
+        value: function sub(x, y) {
+            if (x instanceof Vector) return new Vector(this.x - x.x, this.y - x.y);else return new Vector(this.x - x, this.y - y);
+        }
+    }, {
+        key: "scale",
+        value: function scale(a) {
+            if (a instanceof Vector) return new Vector(a.x * this.x, a.y * this.y);else return new Vector(a * this.x, a * this.y);
+        }
+    }, {
+        key: "normalize",
+        value: function normalize() {
+            var len = this.len();
+            if (len === 0) {
+                return new Vector(0, 0);
+            } else {
+                var invLen = 1 / len;
+                return new Vector(this.x * invLen, this.y * invLen);
+            }
+        }
+    }, {
+        key: "len",
+        value: function len() {
+            return Math.sqrt(this.x * this.x + this.y * this.y);
+        }
+    }, {
+        key: "len2",
+        value: function len2() {
+            return this.x * this.x + this.y * this.y;
+        }
+    }, {
+        key: "distanceTo",
+        value: function distanceTo(v) {
+            return this.sub(v).len();
+        }
+    }, {
+        key: "dot",
+        value: function dot(v) {
+            return this.x * v.x + this.y * v.y;
+        }
+    }, {
+        key: "project",
+        value: function project(v) {
+            return this.scale(v.dot(this) / this.len2());
+        }
+    }, {
+        key: "copy",
+        value: function copy() {
+            return new Vector(this.x, this.y);
+        }
+    }]);
+
+    return Vector;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Module = function () {
+    function Module(parent, divName, divTextName) {
+        var _this = this;
+
+        _classCallCheck(this, Module);
+
+        this.parent = parent;
+        this.div = document.getElementById(divName);
+        this.divtext = divTextName ? document.getElementById(divTextName) : undefined;
+        this.div.oninput = function () {
+            render();_this.onChange();
+        };
+        this.div.onclick = function () {
+            return _this.onClick();
+        };
+        this.div.onfocus = function () {
+            return _this.onFocus();
+        };
+        this.div.onblur = function () {
+            return _this.onBlur();
+        };
+    }
+
+    _createClass(Module, [{
+        key: "blur",
+        value: function blur() {
+            this.div.blur();
+        }
+    }, {
+        key: "onShow",
+        value: function onShow() {}
+    }, {
+        key: "setValue",
+        value: function setValue(val) {
+            this.div.value = val;
+        }
+    }, {
+        key: "setPlaceholder",
+        value: function setPlaceholder(val) {
+            this.div.placeholder = val;
+        }
+    }, {
+        key: "setVisibility",
+        value: function setVisibility(val) {
+            this.div.style.display = val;
+            if (this.divtext != undefined) this.divtext.style.display = val;
+        }
+    }, {
+        key: "setDisabled",
+        value: function setDisabled(val) {
+            this.div.disabled = val;
+        }
+    }, {
+        key: "getValue",
+        value: function getValue() {
+            return this.div.value;
+        }
+    }, {
+        key: "onChange",
+        value: function onChange() {}
+    }, {
+        key: "onClick",
+        value: function onClick() {}
+    }, {
+        key: "onFocus",
+        value: function onFocus() {
+            this.parent.focused = true;
+        }
+    }, {
+        key: "onBlur",
+        value: function onBlur() {
+            this.parent.focused = false;
+        }
+    }]);
+
+    return Module;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Popup = function () {
+    function Popup(divName) {
+        var _this = this;
+
+        _classCallCheck(this, Popup);
+
+        this.div = document.getElementById(divName);
+        this.div.addEventListener('keydown', function (e) {
+            _this.onKeyDown(e.keyCode);
+        }, false);
+        this.div.addEventListener('keyup', function (e) {
+            _this.onKeyUp(e.keyCode);
+        }, false);
+        this.div.style.position = "absolute";
+        this.focused = false;
+
+        this.modules = [];
+
+        this.setPos(V(0, 0));
+        this.hide();
+    }
+
+    _createClass(Popup, [{
+        key: 'onKeyDown',
+        value: function onKeyDown(code) {}
+    }, {
+        key: 'onKeyUp',
+        value: function onKeyUp(code) {}
+    }, {
+        key: 'add',
+        value: function add(m) {
+            this.modules.push(m);
+        }
+    }, {
+        key: 'update',
+        value: function update() {
+            this.onShow();
+        }
+    }, {
+        key: 'onShow',
+        value: function onShow() {
+            for (var i = 0; i < this.modules.length; i++) {
+                this.modules[i].onShow();
+            }
+        }
+    }, {
+        key: 'blur',
+        value: function blur() {
+            for (var i = 0; i < this.modules.length; i++) {
+                this.modules[i].blur();
+            }
+        }
+    }, {
+        key: 'show',
+        value: function show() {
+            this.hidden = false;
+            this.div.style.visibility = "visible";
+            this.div.focus();
+            this.onShow();
+        }
+    }, {
+        key: 'hide',
+        value: function hide() {
+            this.hidden = true;
+            this.div.style.visibility = "hidden";
+            this.div.blur();
+        }
+    }, {
+        key: 'setPos',
+        value: function setPos(v) {
+            this.pos = V(v.x, v.y);
+            this.clamp();
+
+            this.div.style.left = this.pos.x + "px";
+            this.div.style.top = this.pos.y + "px";
+        }
+    }, {
+        key: 'clamp',
+        value: function clamp() {
+            this.pos.x = Math.max(Math.min(this.pos.x, window.innerWidth - this.div.clientWidth - 1), ItemNavController.isOpen ? ITEMNAV_WIDTH + 5 : 5);
+            this.pos.y = Math.max(Math.min(this.pos.y, window.innerHeight - this.div.clientHeight - 1), (header ? header.clientHeight : 0) + 5);
+        }
+    }]);
+
+    return Popup;
 }();
 "use strict";
 
@@ -2072,1614 +2295,7 @@ function getBrowser() {
         version: M[1]
     };
 }
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var CircuitDesigner = function () {
-    function CircuitDesigner(canvas, vw, vh) {
-        var _this = this;
-
-        _classCallCheck(this, CircuitDesigner);
-
-        this.renderer = new Renderer(this, canvas, vw, vh);
-        this.camera = new Camera(this);
-        this.history = new HistoryManager();
-
-        this.wires = [];
-        this.objects = [];
-
-        this.propogationQueue = [];
-
-        window.addEventListener('resize', function (e) {
-            return _this.resize();
-        }, false);
-
-        this.resize();
-    }
-
-    _createClass(CircuitDesigner, [{
-        key: 'reset',
-        value: function reset() {
-            for (var i = 0; i < this.objects.length; i++) {
-                this.objects[i].remove();
-            }for (var i = 0; i < this.wires.length; i++) {
-                this.wires[i].remove();
-            }this.objects = [];
-            this.wires = [];
-            this.propogationQueue = [];
-        }
-    }, {
-        key: 'propogate',
-        value: function propogate(sender, receiver, signal) {
-            var _this2 = this;
-
-            this.propogationQueue.push(new Propogation(sender, receiver, signal, function () {
-                return _this2.update(sender, receiver);
-            })); //() => this.update()));
-        }
-    }, {
-        key: 'update',
-        value: function update(sender, receiver) {
-            var _this3 = this;
-
-            var tempQueue = [];
-            while (this.propogationQueue.length > 0) {
-                tempQueue.push(this.propogationQueue.pop());
-            }while (tempQueue.length > 0) {
-                tempQueue.pop().send();
-            }if (this.propogationQueue.length > 0) updateRequests++;
-
-            updateRequests--;
-
-            console.log("update");
-
-            // See if the sender/receiver is a wire in the scene (not in an IC) to render
-            var inScene = false;
-            if (sender instanceof Wire || receiver instanceof Wire) {
-                for (var i = 0; i < this.wires.length; i++) {
-                    if (this.wires[i] === sender || this.wires[i] === receiver) {
-                        inScene = true;
-                        break;
-                    }
-                }
-            } else {
-                render();
-            }
-
-            if (inScene) render();
-
-            if (updateRequests > 0) {
-                setTimeout(function () {
-                    return _this3.update(sender, receiver);
-                }, PROPOGATION_TIME);
-            }
-        }
-    }, {
-        key: 'render',
-        value: function render() {
-            // console.log("RENDER");
-
-            this.renderer.clear();
-
-            var step = GRID_SIZE / this.camera.zoom;
-
-            var cpos = V(this.camera.pos.x / this.camera.zoom - this.renderer.canvas.width / 2, this.camera.pos.y / this.camera.zoom - this.renderer.canvas.height / 2);
-
-            var cpx = cpos.x - Math.floor(cpos.x / step) * step;
-            if (cpx < 0) cpx += step;
-            var cpy = cpos.y - Math.floor(cpos.y / step) * step;
-            if (cpy < 0) cpy += step;
-
-            // Batch-render the lines = uglier code + way better performance
-            this.renderer.save();
-            this.renderer.setStyles(undefined, '#999', 1 / this.camera.zoom);
-            this.renderer.context.beginPath();
-            for (var x = -cpx; x <= this.renderer.canvas.width - cpx + step; x += step) {
-                this.renderer._line(x, 0, x, this.renderer.canvas.height);
-            }
-            for (var y = -cpy; y <= this.renderer.canvas.height - cpy + step; y += step) {
-                this.renderer._line(0, y, this.renderer.canvas.width, y);
-            }
-            this.renderer.context.closePath();
-            this.renderer.context.stroke();
-            this.renderer.restore();
-
-            // Cull objects/wires if they aren't on the screen
-            for (var i = 0; i < this.wires.length; i++) {
-                if (this.camera.cull(this.wires[i].getCullBox())) this.wires[i].draw();
-            }
-            for (var i = 0; i < this.objects.length; i++) {
-                if (this.camera.cull(this.objects[i].getCullBox())) this.objects[i].draw();
-            }
-
-            CurrentTool.draw(this.renderer);
-        }
-    }, {
-        key: 'resize',
-        value: function resize() {
-            this.renderer.resize();
-            this.camera.resize();
-
-            render();
-        }
-    }, {
-        key: 'addObject',
-        value: function addObject(o) {
-            if (this.getIndexOfObject(o) === -1) this.objects.push(o);else console.error("Attempted to add an object that already existed!");
-        }
-    }, {
-        key: 'addWire',
-        value: function addWire(w) {
-            if (this.getIndexOfWire(w) === -1) this.wires.push(w);else console.error("Attempted to add a wire that already existed!");
-        }
-    }, {
-        key: 'getRenderer',
-        value: function getRenderer() {
-            return this.renderer;
-        }
-    }, {
-        key: 'getObjects',
-        value: function getObjects() {
-            return this.objects;
-        }
-    }, {
-        key: 'getWires',
-        value: function getWires() {
-            return this.wires;
-        }
-    }, {
-        key: 'getIndexOfObject',
-        value: function getIndexOfObject(obj) {
-            for (var i = 0; i < this.objects.length; i++) {
-                if (obj === this.objects[i]) return i;
-            }
-            return -1;
-        }
-    }, {
-        key: 'getIndexOfWire',
-        value: function getIndexOfWire(wire) {
-            for (var i = 0; i < this.wires.length; i++) {
-                if (wire === this.wires[i]) return i;
-            }
-            return -1;
-        }
-    }]);
-
-    return CircuitDesigner;
-}();
 "use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var ICDesigner = function () {
-    function ICDesigner() {
-        _classCallCheck(this, ICDesigner);
-
-        this.canvas = document.getElementById("designer-canvas");
-
-        this.designer = new CircuitDesigner(this.canvas, 0.84, 0.76);
-        this.context = new Context(this.designer);
-
-        this.ic = undefined;
-        this.data = undefined;
-
-        this.drag = false;
-        this.dragObj = undefined;
-
-        this.dragEdge = undefined;
-
-        this.disabled = true;
-
-        this.confirmButton = document.getElementById("ic-confirmbutton");
-        this.cancelButton = document.getElementById("ic-cancelbutton");
-
-        this.hide();
-    }
-
-    _createClass(ICDesigner, [{
-        key: "confirm",
-        value: function confirm() {
-            if (this.ic != undefined) {
-                ICData.add(this.data);
-                var out = this.ic.copy();
-                out.setContext(context);
-                context.getDesigner().addObject(out);
-                this.hide();
-            }
-        }
-    }, {
-        key: "cancel",
-        value: function cancel() {
-            if (this.ic != undefined) {
-                this.hide();
-            }
-        }
-    }, {
-        key: "show",
-        value: function show(selections) {
-            currentContext = this.context;
-            this.disabled = false;
-            TransformController.disabled = true;
-            WireController.disabled = true;
-            SelectionBox.disabled = true;
-
-            this.hidden = false;
-            this.canvas.style.visibility = "visible";
-            this.confirmButton.style.visibility = "visible";
-            this.cancelButton.style.visibility = "visible";
-            if (ItemNavController.isOpen) ItemNavController.toggle();
-            popup.hide();
-
-            this.data = ICData.create(selections);
-            this.ic = new IC(this.context, this.data, 0, 0);
-
-            this.designer.addObject(this.ic);
-            selectionTool.deselectAll();
-            this.context.getCamera().zoom = 0.5 + 0.1 * (this.ic.transform.size.x - 50) / 20;
-            render();
-        }
-    }, {
-        key: "hide",
-        value: function hide() {
-            currentContext = context;
-            this.disabled = true;
-            TransformController.disabled = false;
-            WireController.disabled = false;
-            SelectionBox.disabled = false;
-
-            this.hidden = true;
-            this.canvas.style.visibility = "hidden";
-            this.confirmButton.style.visibility = "hidden";
-            this.cancelButton.style.visibility = "hidden";
-            if (this.ic != undefined) {
-                this.ic.remove();
-                this.ic = undefined;
-                this.data = undefined;
-            }
-            render();
-        }
-    }, {
-        key: "onMouseDown",
-        value: function onMouseDown() {
-            if (this.ic == undefined) return false;
-
-            var worldMousePos = Input.getWorldMousePos();
-
-            var inputs = this.ic.inputs;
-            for (var i = 0; i < inputs.length; i++) {
-                var inp = inputs[i];
-                if (inp.sContains(worldMousePos)) {
-                    this.drag = true;
-                    this.dragObj = this.data.iports[i];
-                    return true;
-                }
-            }
-            var outputs = this.ic.outputs;
-            for (var i = 0; i < outputs.length; i++) {
-                var out = outputs[i];
-                if (out.sContains(worldMousePos)) {
-                    this.drag = true;
-                    this.dragObj = this.data.oports[i];
-                    return true;
-                }
-            }
-
-            var pos = this.ic.getPos();
-            var size = this.ic.getSize();
-            var transform1 = new Transform(pos, size.scale(1.2), 0, this.context.getCamera());
-            var transform2 = new Transform(pos, size.scale(0.8), 0, this.context.getCamera());
-            if (rectContains(transform1, worldMousePos) && !rectContains(transform2, worldMousePos)) {
-                if (worldMousePos.y < pos.y + size.y / 2 - 4 && worldMousePos.y > pos.y - size.y / 2 + 4) {
-                    this.dragEdge = "horizontal";
-                } else {
-                    this.dragEdge = "vertical";
-                }
-                return true;
-            }
-        }
-    }, {
-        key: "onMouseUp",
-        value: function onMouseUp() {
-            if (this.ic == undefined) return false;
-
-            this.drag = false;
-            this.dragObj = undefined;
-            this.dragEdge = undefined;
-        }
-    }, {
-        key: "onMouseMove",
-        value: function onMouseMove() {
-            if (this.ic == undefined) return false;
-
-            var worldMousePos = Input.getWorldMousePos();
-
-            if (this.drag) {
-                var size = this.ic.getSize();
-                var p = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), worldMousePos);
-                var v1 = p.sub(worldMousePos).normalize().scale(size.scale(0.5)).add(p);
-                var v2 = p.sub(worldMousePos).normalize().scale(size.scale(0.5).sub(V(IO_PORT_LENGTH + size.x / 2 - 25, IO_PORT_LENGTH + size.y / 2 - 25))).add(p);
-                this.dragObj.setOrigin(v1);
-                this.dragObj.setTarget(v2);
-
-                this.ic.update();
-
-                return true;
-            }
-            if (this.dragEdge != undefined) {
-                if (this.dragEdge === "horizontal") {
-                    this.data.transform.setWidth(Math.abs(2 * worldMousePos.x));
-                } else {
-                    this.data.transform.setHeight(Math.abs(2 * worldMousePos.y));
-                }
-                this.data.recalculatePorts();
-
-                this.ic.update();
-
-                return true;
-            }
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {}
-    }]);
-
-    return ICDesigner;
-}();
-"use strict";
-
-var images = [];
-
-var popup;
-var contextmenu;
-var icdesigner;
-
-var context;
-
-var currentContext;
-
-var browser = getBrowser();
-
-var saved = true;
-
-// Prompt for exit
-window.onbeforeunload = function (e) {
-    if (!saved) {
-        var dialogText = "You have unsaved changes.";
-        e.returnValue = dialogText;
-        return dialogText;
-    }
-};
-
-function start() {
-    var designer = new CircuitDesigner(document.getElementById("canvas"));
-    context = new Context(designer);
-    currentContext = context;
-
-    popup = new SelectionPopup();
-    icdesigner = new ICDesigner();
-    contextmenu = new ContextMenu();
-
-    Input.registerContext(context);
-    Input.registerContext(icdesigner.context);
-    Input.addMouseListener(icdesigner);
-    Input.addMouseListener(TransformController);
-    Input.addMouseListener(WireController);
-    Input.addMouseListener(SelectionBox);
-
-    selectionTool.activate();
-
-    loadImage(images, ["constLow.svg", "constHigh.svg", "buttonUp.svg", "buttonDown.svg", "switchUp.svg", "switchDown.svg", "led.svg", "ledLight.svg", "buffer.svg", "and.svg", "or.svg", "xor.svg", "segment1.svg", "segment2.svg", "segment3.svg", "segment4.svg", "clock.svg", "clockOn.svg", "keyboard.svg", "base.svg"], 0, onFinishLoading);
-}
-
-function wire(source, target) {
-    var wire = new Wire(getCurrentContext(), source);
-    source.connect(wire);
-    wire.connect(target);
-}
-
-function reset() {
-    ICData.ICs = [];
-    currentContext = context;
-    context.reset();
-}
-
-function onFinishLoading() {
-    render();
-}
-
-var renderQueue = 0;
-
-function render() {
-    if (renderQueue === 0) requestAnimationFrame(actualRender);
-    renderQueue++;
-}
-
-function actualRender() {
-    // console.log("Saved : " + (renderQueue - 1) + " render calls!");
-    renderQueue = 0;
-    getCurrentContext().render();
-}
-
-function loadImage(imgs, imageNames, index, onFinish) {
-    var img = new Image();
-    img.onload = function () {
-        imgs[imageNames[index]] = img;
-        img.dx = 0;
-        img.dy = 0;
-        img.ratio = img.width / img.height;
-        if (index === imageNames.length - 1) onFinish(imgs);else loadImage(imgs, imageNames, index + 1, onFinish);
-    };
-    img.src = "img/items/" + imageNames[index];
-}
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Renderer = function () {
-    function Renderer(parent, canvas, vw, vh) {
-        _classCallCheck(this, Renderer);
-
-        this.parent = parent;
-        this.canvas = canvas;
-        this.tintCanvas = document.createElement("canvas");
-        this.vw = vw == undefined ? 1 : vw;
-        this.vh = vh == undefined ? 1 : vh;
-
-        this.context = this.canvas.getContext("2d");
-
-        this.tintCanvas.width = 100;
-        this.tintCanvas.height = 100;
-        this.tintContext = this.tintCanvas.getContext("2d");
-    }
-
-    _createClass(Renderer, [{
-        key: "getCamera",
-        value: function getCamera() {
-            return this.parent.camera;
-        }
-    }, {
-        key: "setCursor",
-        value: function setCursor(cursor) {
-            this.canvas.style.cursor = cursor;
-        }
-    }, {
-        key: "resize",
-        value: function resize() {
-            this.canvas.width = window.innerWidth * this.vw;
-            this.canvas.height = window.innerHeight * this.vh;
-        }
-    }, {
-        key: "clear",
-        value: function clear() {
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        }
-    }, {
-        key: "save",
-        value: function save() {
-            this.context.save();
-        }
-    }, {
-        key: "restore",
-        value: function restore() {
-            this.context.restore();
-        }
-    }, {
-        key: "translate",
-        value: function translate(v) {
-            this.context.translate(v.x, v.y);
-        }
-    }, {
-        key: "scale",
-        value: function scale(s) {
-            this.context.scale(s.x, s.y);
-        }
-    }, {
-        key: "rotate",
-        value: function rotate(a) {
-            this.context.rotate(a);
-        }
-    }, {
-        key: "rect",
-        value: function rect(x, y, w, h, fillStyle, borderStyle, borderSize, alpha) {
-            this.save();
-            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
-            this.context.beginPath();
-            this.context.rect(x - w / 2, y - h / 2, w, h);
-            this.context.fill();
-            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
-            this.context.closePath();
-            this.restore();
-        }
-    }, {
-        key: "circle",
-        value: function circle(x, y, r, fillStyle, borderStyle, borderSize, alpha) {
-            this.save();
-            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
-            this.context.beginPath();
-            this.context.arc(x, y, r, 0, 2 * Math.PI);
-            if (fillStyle != undefined) this.context.fill();
-            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
-            this.context.closePath();
-            this.restore();
-        }
-    }, {
-        key: "image",
-        value: function image(img, x, y, w, h, tint) {
-            this.context.drawImage(img, x - w / 2, y - h / 2, w, h);
-            if (tint != undefined) this.tintImage(img, x, y, w, h, tint);
-        }
-    }, {
-        key: "tintImage",
-        value: function tintImage(img, x, y, w, h, tint) {
-            this.tintContext.clearRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
-            this.tintContext.fillStyle = tint;
-            this.tintContext.fillRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
-            if (browser.name !== "Firefox") this.tintContext.globalCompositeOperation = "destination-atop";else this.tintContext.globalCompositeOperation = "source-atop";
-            this.tintContext.drawImage(img, 0, 0, this.tintCanvas.width, this.tintCanvas.height);
-
-            this.context.globalAlpha = 0.5;
-            this.context.drawImage(this.tintCanvas, x - w / 2, y - h / 2, w, h);
-            this.context.globalAlpha = 1.0;
-        }
-    }, {
-        key: "text",
-        value: function text(txt, x, y, w, h, textAlign) {
-            this.save();
-            this.context.font = "lighter 15px arial";
-            this.context.fillStyle = '#000';
-            this.context.textAlign = textAlign;
-            this.context.textBaseline = "middle";
-            this.context.fillText(txt, x, y);
-            this.restore();
-        }
-    }, {
-        key: "getTextWidth",
-        value: function getTextWidth(txt) {
-            var width = 0;
-            this.save();
-            this.context.font = "lighter 15px arial";
-            this.context.fillStyle = '#000';
-            this.context.textBaseline = "middle";
-            width = this.context.measureText(txt).width;
-            this.restore();
-            return width;
-        }
-    }, {
-        key: "line",
-        value: function line(x1, y1, x2, y2, style, size) {
-            this.save();
-            this.setStyles(undefined, style, size);
-            this.context.beginPath();
-            this.context.moveTo(x1, y1);
-            this.context.lineTo(x2, y2);
-            this.context.stroke();
-            this.context.closePath();
-            this.restore();
-        }
-    }, {
-        key: "_line",
-        value: function _line(x1, y1, x2, y2) {
-            this.context.moveTo(x1, y1);
-            this.context.lineTo(x2, y2);
-        }
-    }, {
-        key: "curve",
-        value: function curve(x1, y1, x2, y2, cx1, cy1, cx2, cy2, style, size) {
-            this.save();
-            this.setStyles(undefined, style, size);
-            this.context.beginPath();
-            this.context.moveTo(x1, y1);
-            this.context.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
-            this.context.stroke();
-            this.context.closePath();
-            this.restore();
-        }
-    }, {
-        key: "quadCurve",
-        value: function quadCurve(x1, y1, x2, y2, cx, cy, style, size) {
-            this.save();
-            this.setStyles(undefined, style, size);
-            this.context.beginPath();
-            this.context.moveTo(x1, y1);
-            this.context.quadraticCurveTo(cx, cy, x2, y2);
-            this.context.stroke();
-            this.context.closePath();
-            this.restore();
-        }
-    }, {
-        key: "shape",
-        value: function shape(points, fillStyle, borderStyle, borderSize) {
-            this.save();
-            this.setStyles(fillStyle, borderStyle, borderSize);
-            this.context.beginPath();
-            this.context.moveTo(points[0].x, points[0].y);
-            for (var i = 1; i < points.length; i++) {
-                this.context.lineTo(points[i].x, points[i].y);
-            }this.context.lineTo(points[0].x, points[0].y);
-            this.context.fill();
-            this.context.closePath();
-            if (borderSize > 0) this.context.stroke();
-            this.restore();
-        }
-    }, {
-        key: "setStyles",
-        value: function setStyles(fillStyle, borderStyle, borderSize, alpha) {
-            if (alpha != undefined && alpha !== this.context.globalAlpha) this.context.globalAlpha = alpha;
-
-            fillStyle = fillStyle == undefined ? '#ffffff' : fillStyle;
-            if (fillStyle != undefined && fillStyle !== this.context.fillStyle) this.context.fillStyle = fillStyle;
-
-            borderStyle = borderStyle == undefined ? '#000000' : borderStyle;
-            if (borderStyle != undefined && borderStyle !== this.context.strokeStyle) this.context.strokeStyle = borderStyle;
-
-            borderSize = borderSize == undefined ? 2 : borderSize;
-            if (borderSize != undefined && borderSize !== this.context.lineWidth) this.context.lineWidth = borderSize;
-        }
-    }]);
-
-    return Renderer;
-}();
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var IOObject = function () {
-    function IOObject(context, x, y, w, h, img, isPressable, maxInputs, maxOutputs, selectionBoxWidth, selectionBoxHeight) {
-        _classCallCheck(this, IOObject);
-
-        if (context == undefined) context = getCurrentContext();
-        this.context = context;
-        x = x == undefined ? 0 : x;
-        y = y == undefined ? 0 : y;
-        this.transform = new Transform(V(x, y), V(w, h), 0, context.getCamera());
-        this.cullTransform = new Transform(this.transform.getPos(), V(0, 0), 0, this.context.getCamera());
-
-        this.name = this.getDisplayName();
-        this.img = img;
-        this.isOn = false;
-        this.isPressable = isPressable;
-        this.maxInputs = maxInputs;
-        this.maxOutputs = maxOutputs;
-        this.selected = false;
-
-        if (this.isPressable) this.selectionBoxTransform = new Transform(V(x, y), V(selectionBoxWidth, selectionBoxHeight), 0, context.getCamera());
-
-        this.outputs = [];
-        this.inputs = [];
-
-        if (maxOutputs > 0) this.setOutputAmount(1);
-    }
-
-    _createClass(IOObject, [{
-        key: 'setInputAmount',
-        value: function setInputAmount(target) {
-            target = clamp(target, 0, this.maxInputs);
-            while (this.inputs.length > target) {
-                this.inputs.splice(this.inputs.length - 1, 1);
-            }while (this.inputs.length < target) {
-                this.inputs.push(new IPort(this));
-            }for (var i = 0; i < this.inputs.length; i++) {
-                this.inputs[i].updatePosition();
-            }this.onTransformChange();
-        }
-    }, {
-        key: 'setOutputAmount',
-        value: function setOutputAmount(target) {
-            target = clamp(target, 0, this.maxOutputs);
-            while (this.outputs.length > target) {
-                this.outputs.splice(this.outputs.length - 1, 1);
-            }while (this.outputs.length < target) {
-                this.outputs.push(new OPort(this));
-            }for (var i = 0; i < this.outputs.length; i++) {
-                this.outputs[i].updatePosition();
-            }this.onTransformChange();
-        }
-    }, {
-        key: 'onTransformChange',
-        value: function onTransformChange() {
-            if (this.isPressable && this.selectionBoxTransform != undefined) {
-                this.selectionBoxTransform.setPos(this.transform.getPos());
-                this.selectionBoxTransform.setAngle(this.transform.getAngle());
-                this.selectionBoxTransform.setScale(this.transform.getScale());
-            }
-            this.updateCullTransform();
-            for (var i = 0; i < this.inputs.length; i++) {
-                this.inputs[i].onTransformChange();
-            }for (var i = 0; i < this.outputs.length; i++) {
-                this.outputs[i].onTransformChange();
-            }
-        }
-    }, {
-        key: 'updateCullTransform',
-        value: function updateCullTransform() {
-            // Find min/max points on the object
-            var min = V(-this.transform.size.x / 2, -this.transform.size.y / 2);
-            var max = V(this.transform.size.x / 2, this.transform.size.y / 2);
-            if (this.selectionBoxTransform != undefined) {
-                min.x = Math.min(-this.selectionBoxTransform.size.x / 2, min.x);
-                min.y = Math.min(-this.selectionBoxTransform.size.y / 2, min.y);
-                max.x = Math.max(this.selectionBoxTransform.size.x / 2, max.x);
-                max.y = Math.max(this.selectionBoxTransform.size.y / 2, max.y);
-            }
-            for (var i = 0; i < this.inputs.length; i++) {
-                var iport = this.inputs[i];
-                min.x = Math.min(iport.target.x, min.x);
-                min.y = Math.min(iport.target.y, min.y);
-                max.x = Math.max(iport.target.x, max.x);
-                max.y = Math.max(iport.target.y, max.y);
-            }
-            for (var i = 0; i < this.outputs.length; i++) {
-                var oport = this.outputs[i];
-                min.x = Math.min(oport.target.x, min.x);
-                min.y = Math.min(oport.target.y, min.y);
-                max.x = Math.max(oport.target.x, max.x);
-                max.y = Math.max(oport.target.y, max.y);
-            }
-            this.cullTransform.setSize(V(max.x - min.x, max.y - min.y));
-            var c = Math.cos(this.transform.getAngle());
-            var s = Math.sin(this.transform.getAngle());
-            var x = (min.x - -this.cullTransform.size.x / 2) * c + (min.y - -this.cullTransform.size.y / 2) * s;
-            var y = (min.y - -this.cullTransform.size.y / 2) * c + (min.x - -this.cullTransform.size.x / 2) * s;
-            this.cullTransform.setPos(this.transform.getPos().add(V(x, y)));
-            this.cullTransform.setAngle(this.transform.getAngle());
-            this.cullTransform.setScale(this.transform.getScale());
-            this.cullTransform.setSize(this.cullTransform.size.add(V(2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS)));
-        }
-    }, {
-        key: 'click',
-        value: function click() {
-            // console.log(this);
-        }
-    }, {
-        key: 'press',
-        value: function press() {}
-    }, {
-        key: 'release',
-        value: function release() {}
-    }, {
-        key: 'activate',
-        value: function activate(on, i) {
-            if (i == undefined) i = 0;
-
-            this.isOn = on;
-            if (this.outputs[i] != undefined) this.outputs[i].activate(on);
-        }
-    }, {
-        key: 'localSpace',
-        value: function localSpace() {
-            var renderer = this.context.getRenderer();
-            renderer.save();
-            this.transform.transformCtx(renderer.context);
-        }
-    }, {
-        key: 'draw',
-        value: function draw() {
-            this.localSpace();
-            for (var i = 0; i < this.inputs.length; i++) {
-                this.inputs[i].draw();
-            }for (var i = 0; i < this.outputs.length; i++) {
-                this.outputs[i].draw(i);
-            }var renderer = this.context.getRenderer();
-            if (this.isPressable && this.selectionBoxTransform != undefined) renderer.rect(0, 0, this.selectionBoxTransform.size.x, this.selectionBoxTransform.size.y, this.getCol(), this.getBorderColor());
-
-            if (this.img != undefined) renderer.image(this.img, 0, 0, this.transform.size.x, this.transform.size.y, this.getImageTint());
-            renderer.restore();
-        }
-    }, {
-        key: 'remove',
-        value: function remove() {
-            this.context.remove(this);
-            for (var i = 0; i < this.outputs.length; i++) {
-                this.outputs[i].remove();
-            }for (var i = 0; i < this.inputs.length; i++) {
-                this.inputs[i].remove();
-            }
-        }
-    }, {
-        key: 'contains',
-        value: function contains(pos) {
-            return rectContains(this.transform, pos);
-        }
-    }, {
-        key: 'sContains',
-        value: function sContains(pos) {
-            return !this.isPressable && this.contains(pos) || this.isPressable && !this.contains(pos) && rectContains(this.selectionBoxTransform, pos);
-        }
-    }, {
-        key: 'iPortContains',
-        value: function iPortContains(pos) {
-            for (var i = 0; i < this.inputs.length; i++) {
-                if (this.inputs[i].contains(pos)) return i;
-            }
-            return -1;
-        }
-    }, {
-        key: 'oPortContains',
-        value: function oPortContains(pos) {
-            for (var i = 0; i < this.outputs.length; i++) {
-                if (this.outputs[i].contains(pos)) return i;
-            }
-            return -1;
-        }
-    }, {
-        key: 'setContext',
-        value: function setContext(context) {
-            this.context = context;
-            this.transform.setCamera(this.context.getCamera());
-            if (this.selectionBoxTransform != undefined) this.selectionBoxTransform.setCamera(this.context.getCamera());
-        }
-    }, {
-        key: 'setTransform',
-        value: function setTransform(t) {
-            this.transform = t;
-            this.onTransformChange();
-        }
-    }, {
-        key: 'setPos',
-        value: function setPos(v) {
-            this.transform.setPos(v);
-            this.onTransformChange();
-        }
-    }, {
-        key: 'setAngle',
-        value: function setAngle(a) {
-            this.transform.setAngle(a);
-            this.onTransformChange();
-        }
-        // setRotationAbout(a, c) {
-        //     this.transform.rotateAbout(a-this.getAngle(), c);
-        //     this.onTransformChange();
-        // }
-
-    }, {
-        key: 'setRotationAbout',
-        value: function setRotationAbout(a, c) {
-            this.transform.rotateAbout(-this.getAngle(), c);
-            this.transform.rotateAbout(a, c);
-            this.onTransformChange();
-        }
-    }, {
-        key: 'setName',
-        value: function setName(name) {
-            this.name = name;
-        }
-    }, {
-        key: 'getCullBox',
-        value: function getCullBox() {
-            return this.cullTransform;
-        }
-    }, {
-        key: 'getInputAmount',
-        value: function getInputAmount() {
-            return this.inputs.length;
-        }
-    }, {
-        key: 'getImageTint',
-        value: function getImageTint() {
-            return this.getCol();
-        }
-    }, {
-        key: 'getCol',
-        value: function getCol() {
-            return this.selected ? '#1cff3e' : undefined;
-        }
-    }, {
-        key: 'getBorderColor',
-        value: function getBorderColor() {
-            return this.selected ? '#0d7f1f' : undefined;
-        }
-    }, {
-        key: 'getPos',
-        value: function getPos() {
-            return this.transform.pos.copy();
-        }
-    }, {
-        key: 'getAngle',
-        value: function getAngle() {
-            return this.transform.angle;
-        }
-    }, {
-        key: 'getSize',
-        value: function getSize() {
-            return this.transform.size;
-        }
-    }, {
-        key: 'getMaxInputFieldCount',
-        value: function getMaxInputFieldCount() {
-            return 8;
-        }
-    }, {
-        key: 'getMinInputFieldCount',
-        value: function getMinInputFieldCount() {
-            return 2;
-        }
-    }, {
-        key: 'getName',
-        value: function getName() {
-            return this.name;
-        }
-    }, {
-        key: 'getDisplayName',
-        value: function getDisplayName() {
-            return "IOObject";
-        }
-    }, {
-        key: 'getRenderer',
-        value: function getRenderer() {
-            return this.context.getRenderer();
-        }
-    }, {
-        key: 'copy',
-        value: function copy() {
-            var copy = new this.constructor(this.context);
-            copy.transform = this.transform.copy();
-            copy.name = this.name;
-            if (this.selectionBoxTransform != undefined) copy.selectionBoxTransform = this.selectionBoxTransform.copy();
-            for (var i = 0; i < this.inputs.length; i++) {
-                copy.inputs[i] = this.inputs[i].copy();
-                copy.inputs[i].parent = copy;
-            }
-            for (var i = 0; i < this.outputs.length; i++) {
-                copy.outputs[i] = this.outputs[i].copy();
-                copy.outputs[i].parent = copy;
-            }
-            return copy;
-        }
-    }, {
-        key: 'writeTo',
-        value: function writeTo(node) {
-            var objNode = createChildNode(node, this.constructor.getXMLName());
-            createTextElement(objNode, "uid", this.uid);
-            createTextElement(objNode, "name", this.getName());
-            createTextElement(objNode, "x", this.getPos().x);
-            createTextElement(objNode, "y", this.getPos().y);
-            createTextElement(objNode, "angle", this.getAngle());
-            return objNode;
-        }
-    }, {
-        key: 'load',
-        value: function load(node) {
-            var uid = getIntValue(getChildNode(node, "uid"));
-            var name = getStringValue(getChildNode(node, "name"));
-            var x = getFloatValue(getChildNode(node, "x"));
-            var y = getFloatValue(getChildNode(node, "y"));
-            var angle = getFloatValue(getChildNode(node, "angle"));
-            var isOn = getBooleanValue(getChildNode(node, "isOn"), false);
-            this.uid = uid;
-            this.setName(name);
-            if (isOn) this.click(isOn);
-            this.setPos(V(x, y));
-            this.setAngle(angle);
-            return this;
-        }
-    }]);
-
-    return IOObject;
-}();
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var IOPort = function () {
-    function IOPort(parent, dir) {
-        _classCallCheck(this, IOPort);
-
-        this.isOn = false;
-        this.parent = parent;
-        this.connections = [];
-
-        this.lineColor = DEFAULT_BORDER_COLOR;
-
-        this.origin = V(0, 0);
-        this.target = dir.scale(IO_PORT_LENGTH);
-        this.dir = dir;
-
-        this.set = false;
-
-        if (parent != undefined) this.updatePosition();
-    }
-
-    _createClass(IOPort, [{
-        key: 'getArray',
-        value: function getArray() {}
-    }, {
-        key: 'getIndex',
-        value: function getIndex() {
-            for (var i = 0; i < this.getArray().length && this.getArray()[i] !== this; i++) {}
-            return i;
-        }
-    }, {
-        key: 'getCol',
-        value: function getCol() {
-            return this.parent.selected || this.selected ? '#1cff3e' : undefined;
-        }
-    }, {
-        key: 'getBorderColor',
-        value: function getBorderColor() {
-            return this.parent.selected || this.selected ? '#0d7f1f' : undefined;
-        }
-    }, {
-        key: 'updatePosition',
-        value: function updatePosition() {
-            var i = this.getIndex();
-
-            var l = -this.parent.transform.size.y / 2 * (i - this.getArray().length / 2 + 0.5);
-            if (i === 0) l -= 1;
-            if (i === this.getArray().length - 1) l += 1;
-
-            this.origin.y = l;
-            this.target.y = l;
-            this.prevParentLength = this.getArray().length;
-        }
-    }, {
-        key: 'onTransformChange',
-        value: function onTransformChange() {
-            if (!this.set) this.updatePosition();
-
-            for (var i = 0; i < this.connections.length; i++) {
-                if (this.connections[i] != undefined) this.connections[i].onTransformChange();
-            }
-        }
-    }, {
-        key: 'activate',
-        value: function activate(on) {}
-    }, {
-        key: 'contains',
-        value: function contains(pos) {
-            var transform = new Transform(this.target, V(IO_PORT_RADIUS, IO_PORT_RADIUS).scale(2), 0, this.parent.context.getCamera());
-            transform.setParent(this.parent.transform);
-            return circleContains(transform, pos);
-        }
-    }, {
-        key: 'sContains',
-        value: function sContains(pos) {
-            var angle = Math.atan2(this.target.y - this.origin.y, this.target.x - this.origin.x);
-            var len = this.origin.distanceTo(this.target);
-            var pos0 = this.target.add(this.origin).scale(0.5);
-            var transform = new Transform(pos0, V(len, IO_PORT_LINE_WIDTH * 2), angle, this.parent.context.getCamera());
-            transform.setParent(this.parent.transform);
-            return rectContains(transform, pos);
-        }
-    }, {
-        key: 'draw',
-        value: function draw() {
-            if (!this.set && this.getArray().length !== this.prevParentLength) this.updatePosition();
-
-            var o = this.origin;
-            var v = this.target;
-            var renderer = this.parent.getRenderer();
-
-            var lineCol = this.parent.getBorderColor() ? this.parent.getBorderColor() : this.lineColor;
-            renderer.line(o.x, o.y, v.x, v.y, lineCol, IO_PORT_LINE_WIDTH);
-
-            var circleFillCol = this.getCol() ? this.getCol() : DEFAULT_FILL_COLOR;
-            var circleBorderCol = this.getBorderColor() ? this.getBorderColor() : DEFAULT_BORDER_COLOR;
-            renderer.circle(v.x, v.y, IO_PORT_RADIUS, circleFillCol, circleBorderCol, IO_PORT_BORDER_WIDTH);
-        }
-    }, {
-        key: 'remove',
-        value: function remove() {}
-    }, {
-        key: 'setOrigin',
-        value: function setOrigin(v) {
-            this.origin.x = v.x;
-            this.origin.y = v.y;
-            this.set = true;
-            if (this.parent != undefined) this.parent.onTransformChange();
-        }
-    }, {
-        key: 'setTarget',
-        value: function setTarget(v) {
-            this.target.x = v.x;
-            this.target.y = v.y;
-            this.set = true;
-            if (this.parent != undefined) this.parent.onTransformChange();
-        }
-    }, {
-        key: 'getPos',
-        value: function getPos() {
-            return this.parent.transform.getMatrix().mul(this.target);
-        }
-    }, {
-        key: 'getOPos',
-        value: function getOPos() {
-            return this.parent.transform.getMatrix().mul(this.origin);
-        }
-    }, {
-        key: 'getDir',
-        value: function getDir() {
-            return this.parent.transform.getMatrix().mul(this.dir).sub(this.parent.getPos()).normalize();
-        }
-    }, {
-        key: 'setName',
-        value: function setName(n) {}
-    }, {
-        key: 'setPos',
-        value: function setPos() {}
-    }, {
-        key: 'getInputAmount',
-        value: function getInputAmount() {
-            return 1;
-        }
-    }, {
-        key: 'getMaxInputFieldCount',
-        value: function getMaxInputFieldCount() {
-            return 1;
-        }
-    }, {
-        key: 'getMinInputFieldCount',
-        value: function getMinInputFieldCount() {
-            return 1;
-        }
-    }, {
-        key: 'getName',
-        value: function getName() {
-            return this.getDisplayName();
-        }
-    }, {
-        key: 'getDisplayName',
-        value: function getDisplayName() {
-            return "ioport";
-        }
-    }, {
-        key: 'getXMLName',
-        value: function getXMLName() {
-            return this.getDisplayName().toLowerCase().replace(/\s+/g, '');
-        }
-    }, {
-        key: 'copy',
-        value: function copy() {
-            var port = new this.constructor();
-            port.origin = this.origin.copy();
-            port.target = this.target.copy();
-            port.set = this.set;
-            port.lineColor = this.lineColor;
-            return port;
-        }
-    }, {
-        key: 'writeTo',
-        value: function writeTo(node) {
-            var ioPortNode = createChildNode(node, this.getXMLName());
-            createTextElement(ioPortNode, "originx", this.origin.x);
-            createTextElement(ioPortNode, "originy", this.origin.y);
-            createTextElement(ioPortNode, "targetx", this.target.x);
-            createTextElement(ioPortNode, "targety", this.target.y);
-        }
-    }, {
-        key: 'load',
-        value: function load(node) {
-            var originx = getFloatValue(getChildNode(node, "originx"));
-            var originy = getFloatValue(getChildNode(node, "originy"));
-            var targetx = getFloatValue(getChildNode(node, "targetx"));
-            var targety = getFloatValue(getChildNode(node, "targety"));
-            this.setOrigin(V(originx, originy));
-            this.setTarget(V(targetx, targety));
-            return this;
-        }
-    }, {
-        key: 'uid',
-        get: function get() {
-            return this.parent.uid;
-        }
-    }]);
-
-    return IOPort;
-}();
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var IPort = function (_IOPort) {
-    _inherits(IPort, _IOPort);
-
-    function IPort(parent) {
-        _classCallCheck(this, IPort);
-
-        return _possibleConstructorReturn(this, (IPort.__proto__ || Object.getPrototypeOf(IPort)).call(this, parent, V(-1, 0)));
-    }
-
-    _createClass(IPort, [{
-        key: "getArray",
-        value: function getArray() {
-            return this.parent.inputs;
-        }
-    }, {
-        key: "activate",
-        value: function activate(on) {
-            if (this.isOn === on) return;
-
-            this.isOn = on;
-            this.parent.context.propogate(this, this.parent, this.isOn);
-        }
-    }, {
-        key: "remove",
-        value: function remove() {
-            if (this.input != undefined) this.input.disconnect(this);
-        }
-    }, {
-        key: "getDisplayName",
-        value: function getDisplayName() {
-            return "iport";
-        }
-    }, {
-        key: "input",
-        set: function set(obj) {
-            if (obj == undefined) this.connections = [];else this.connections[0] = obj;
-        },
-        get: function get() {
-            if (this.connections.length > 0) return this.connections[0];else return undefined;
-        }
-    }]);
-
-    return IPort;
-}(IOPort);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var OPort = function (_IOPort) {
-    _inherits(OPort, _IOPort);
-
-    function OPort(parent) {
-        _classCallCheck(this, OPort);
-
-        return _possibleConstructorReturn(this, (OPort.__proto__ || Object.getPrototypeOf(OPort)).call(this, parent, V(1, 0)));
-    }
-
-    _createClass(OPort, [{
-        key: "getArray",
-        value: function getArray() {
-            return this.parent.outputs;
-        }
-    }, {
-        key: "activate",
-        value: function activate(on) {
-            if (this.isOn === on) return;
-
-            this.isOn = on;
-            for (var i = 0; i < this.connections.length; i++) {
-                this.parent.context.propogate(this, this.connections[i], this.isOn);
-            }
-        }
-    }, {
-        key: "remove",
-        value: function remove() {
-            for (var i = 0; i < this.connections.length; i++) {
-                this.disconnect(this.connections[i]);
-            }
-        }
-    }, {
-        key: "connect",
-        value: function connect(wire) {
-            this.connections.push(wire);
-            wire.input = this;
-            wire.onTransformChange();
-            wire.activate(this.isOn);
-            return true;
-        }
-    }, {
-        key: "disconnect",
-        value: function disconnect(obj) {
-            for (var i = 0; i < this.connections.length && this.connections[i] !== obj; i++) {}
-            this.connections[i].input = undefined;
-            this.connections.splice(i, 1);
-        }
-    }, {
-        key: "getDisplayName",
-        value: function getDisplayName() {
-            return "oport";
-        }
-    }]);
-
-    return OPort;
-}(IOPort);
-'use strict';
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Wire = function () {
-    function Wire(context) {
-        _classCallCheck(this, Wire);
-
-        this.context = context;
-
-        this.input = undefined;
-        this.connection = undefined;
-
-        this.curve = new BezierCurve(V(0, 0), V(0, 0), V(0, 0), V(0, 0));
-        this.isOn = false;
-        this.set = false; // Manually set bezier control points
-
-        this.straight = false;
-        this.dirty = true;
-        this.boundingBox = new Transform(0, 0, 0, context.getCamera());
-    }
-
-    _createClass(Wire, [{
-        key: 'activate',
-        value: function activate(on) {
-            if (this.isOn === on) return;
-
-            this.isOn = on;
-            if (this.connection != undefined) this.connection.activate(on);
-        }
-    }, {
-        key: 'split',
-        value: function split(t) {
-            var pos = this.curve.getPos(t);
-
-            var wire = new Wire(this.context);
-
-            var prevConnection = this.connection;
-            this.disconnect();
-
-            var port = new WirePort(this.context);
-            this.connect(port);
-            wire.connect(prevConnection);
-            port.connect(wire);
-
-            this.connection.setPos(pos);
-
-            getCurrentContext().addObject(port);
-            getCurrentContext().addWire(wire);
-        }
-    }, {
-        key: 'updateBoundingBox',
-        value: function updateBoundingBox() {
-            if (!this.dirty) return;
-            this.dirty = false;
-
-            var end1 = this.getPos(0);
-            var end2 = this.getPos(1);
-            var min = V(Math.min(end1.x, end2.x), Math.min(end1.y, end2.y));
-            var max = V(Math.max(end1.x, end2.x), Math.max(end1.y, end2.y));
-            this.boundingBox.setSize(V(max.x - min.x + 2, max.y - min.y + 2));
-            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
-        }
-    }, {
-        key: 'onTransformChange',
-        value: function onTransformChange() {
-            if (this.input != undefined) {
-                var pos = this.input.getPos();
-                if (this.set) {
-                    this.curve.c1.x += pos.x - this.curve.p1.x;
-                    this.curve.c1.y += pos.y - this.curve.p1.y;
-                } else {
-                    var dir = this.input instanceof WirePort ? this.input.getODir() : this.input.getDir();
-                    var c = dir.scale(DEFAULT_SIZE).add(pos);
-                    this.curve.c1.x = c.x;
-                    this.curve.c1.y = c.y;
-                }
-                this.curve.p1.x = pos.x;
-                this.curve.p1.y = pos.y;
-                this.curve.dirty = true;
-                this.dirty = true;
-            }
-            if (this.connection != undefined) {
-                var pos = this.connection.getPos();
-                if (this.set) {
-                    this.curve.c2.x += pos.x - this.curve.p2.x;
-                    this.curve.c2.y += pos.y - this.curve.p2.y;
-                } else {
-                    var dir = this.connection.getDir();
-                    var c = dir.scale(DEFAULT_SIZE).add(pos);
-                    this.curve.c2.x = c.x;
-                    this.curve.c2.y = c.y;
-                }
-                this.curve.p2.x = pos.x;
-                this.curve.p2.y = pos.y;
-                this.curve.dirty = true;
-                this.dirty = true;
-            }
-        }
-    }, {
-        key: 'connect',
-        value: function connect(obj) {
-            if (this.connection != undefined || obj.input != undefined) return false;
-
-            this.connection = obj;
-            obj.input = this;
-            this.onTransformChange();
-            obj.activate(this.isOn);
-
-            return true;
-        }
-    }, {
-        key: 'disconnect',
-        value: function disconnect() {
-            if (this.connection == undefined) return false;
-
-            this.connection.input = undefined;
-            this.connection.activate(false);
-            this.connection = undefined;
-        }
-    }, {
-        key: 'draw',
-        value: function draw() {
-            var renderer = this.context.getRenderer();
-            var camera = this.context.getCamera();
-
-            var color = this.isOn ? '#3cacf2' : this.selected ? '#1cff3e' : DEFAULT_FILL_COLOR;
-            if (this.straight) {
-                var p1 = camera.getScreenPos(this.curve.p1);
-                var p2 = camera.getScreenPos(this.curve.p2);
-                renderer.line(p1.x, p1.y, p2.x, p2.y, color, 7 / camera.zoom);
-            } else {
-                this.curve.draw(color, 7 / camera.zoom, renderer);
-            }
-        }
-    }, {
-        key: 'remove',
-        value: function remove() {
-            this.context.remove(this);
-            if (this.input != undefined) this.input.disconnect(this);
-            if (this.connection != undefined) this.disconnect(this.connection);
-        }
-    }, {
-        key: 'contains',
-        value: function contains(pos) {
-            return this.curve.getNearestT(pos.x, pos.y) !== -1;
-        }
-    }, {
-        key: 'setName',
-        value: function setName(n) {}
-    }, {
-        key: 'setPos',
-        value: function setPos() {}
-    }, {
-        key: 'getPos',
-        value: function getPos(t) {
-            if (t == undefined) t = 0.5;
-            return this.curve.getPos(t);
-        }
-    }, {
-        key: 'getNearestT',
-        value: function (_getNearestT) {
-            function getNearestT(_x, _x2) {
-                return _getNearestT.apply(this, arguments);
-            }
-
-            getNearestT.toString = function () {
-                return _getNearestT.toString();
-            };
-
-            return getNearestT;
-        }(function (mx, my) {
-            return this.straight ? getNearestT(this.curve.p1, this.curve.p2, mx, my) : this.curve.getNearestT(mx, my);
-        })
-    }, {
-        key: 'getCullBox',
-        value: function getCullBox() {
-            return this.straight ? this.getBoundingBox() : this.curve.getBoundingBox();
-        }
-    }, {
-        key: 'getBoundingBox',
-        value: function getBoundingBox() {
-            if (!this.straight) return undefined;
-
-            this.updateBoundingBox();
-            return this.boundingBox;
-        }
-    }, {
-        key: 'getInputAmount',
-        value: function getInputAmount() {
-            return 1;
-        }
-    }, {
-        key: 'getMaxInputFieldCount',
-        value: function getMaxInputFieldCount() {
-            return 1;
-        }
-    }, {
-        key: 'getMinInputFieldCount',
-        value: function getMinInputFieldCount() {
-            return 1;
-        }
-    }, {
-        key: 'getName',
-        value: function getName() {
-            return this.getDisplayName();
-        }
-    }, {
-        key: 'getDisplayName',
-        value: function getDisplayName() {
-            return "Wire";
-        }
-    }, {
-        key: 'copy',
-        value: function copy() {
-            var copy = new Wire(this.context);
-            copy.curve = this.curve.copy();
-            copy.straight = this.straight;
-            return copy;
-        }
-    }, {
-        key: 'writeTo',
-        value: function writeTo(node, objects, wires) {
-            var wireNode = createChildNode(node, "wire");
-
-            createTextElement(wireNode, "uid", this.uid);
-
-            var inputNode = createChildNode(wireNode, "input");
-            createTextElement(inputNode, "uid", this.input.uid);
-            createTextElement(inputNode, "index", this.input.getIndex());
-
-            var connectionNode = createChildNode(wireNode, "connection");
-            createTextElement(connectionNode, "uid", this.connection.uid);
-            createTextElement(connectionNode, "index", this.connection.getIndex());
-
-            this.curve.writeTo(wireNode);
-
-            createTextElement(wireNode, "straight", this.straight);
-        }
-    }, {
-        key: 'load',
-        value: function load(node) {
-            var objects = this.context.getObjects();
-            var wires = this.context.getWires();
-
-            var uid = getIntValue(getChildNode(node, "uid"));
-            this.uid = uid;
-
-            var bezier = getChildNode(node, "bezier");
-            this.curve.load(bezier);
-
-            var straight = getBooleanValue(getChildNode(node, "straight"));
-            this.straight = straight;
-
-            return this;
-        }
-    }, {
-        key: 'loadConnections',
-        value: function loadConnections(node, objects) {
-            var inputNode = getChildNode(node, "input");
-            var sourceUID = getIntValue(getChildNode(inputNode, "uid"));
-            var sourceIndx = getIntValue(getChildNode(inputNode, "index"));
-            var source = findByUID(objects, sourceUID);
-            source = source instanceof WirePort ? source : source.outputs[sourceIndx];
-
-            var connectionNode = getChildNode(node, "connection");
-            var targetUID = getIntValue(getChildNode(connectionNode, "uid"));
-            var targetIndx = getIntValue(getChildNode(connectionNode, "index"));
-            var target = findByUID(objects, targetUID);
-            console.log(targetUID);
-            console.log(targetIndx);
-            console.log(target);
-            target = target instanceof WirePort ? target : target.inputs[targetIndx];
-
-            source.connect(this);
-            this.connect(target);
-        }
-    }]);
-
-    return Wire;
-}();
-'use strict';
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
@@ -3691,167 +2307,873 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
-var WirePort = function (_IOObject) {
-    _inherits(WirePort, _IOObject);
+var ContextMenu = function (_Popup) {
+    _inherits(ContextMenu, _Popup);
 
-    function WirePort(context) {
-        _classCallCheck(this, WirePort);
+    function ContextMenu() {
+        _classCallCheck(this, ContextMenu);
 
-        var _this = _possibleConstructorReturn(this, (WirePort.__proto__ || Object.getPrototypeOf(WirePort)).call(this, context, 0, 0, 2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS));
+        var _this = _possibleConstructorReturn(this, (ContextMenu.__proto__ || Object.getPrototypeOf(ContextMenu)).call(this, "context-menu"));
 
-        _this._input = undefined;
-        _this.connection = undefined;
-        _this.isOn = false;
-        _this.selected = false;
-        _this.hasSetTransform = false;
+        _this.add(new CutModule(_this, "context-menu-cut"));
+        _this.add(new CopyModule(_this, "context-menu-copy"));
+        _this.add(new PasteModule(_this, "context-menu-paste"));
+        _this.add(new SelectAllModule(_this, "context-menu-select-all"));
+
+        _this.add(new UndoModule(_this, "context-menu-undo"));
+        _this.add(new RedoModule(_this, "context-menu-redo"));
         return _this;
     }
 
-    _createClass(WirePort, [{
-        key: 'activate',
-        value: function activate(on) {
-            if (this.isOn === on) return;
-
-            this.isOn = on;
-            if (this.connection != undefined) this.connection.activate(on);
-        }
-    }, {
-        key: 'remove',
-        value: function remove() {
-            this.context.remove(this);
-            if (this.input != undefined) this.input.disconnect(this);
-            if (this.connection != undefined) this.disconnect(this.connection);
-        }
-    }, {
-        key: 'setTransform',
-        value: function setTransform(t) {
-            this.transform = t;
-            this.setPos(t.pos);
-        }
-    }, {
-        key: 'onTransformChange',
-        value: function onTransformChange() {
-            if (this.input != undefined) this.input.onTransformChange();
-            if (this.connection != undefined) this.connection.onTransformChange();
-        }
-    }, {
-        key: 'connect',
-        value: function connect(wire) {
-            if (this.connection != undefined) return false;
-
-            this.connection = wire;
-            wire.input = this;
-            wire.onTransformChange();
-            wire.activate(this.isOn);
-
-            return true;
-        }
-    }, {
-        key: 'disconnect',
-        value: function disconnect() {
-            if (this.connection == undefined) return;
-
-            this.connection.input = undefined;
-            this.connection = undefined;
-        }
-    }, {
-        key: 'draw',
-        value: function draw() {
-            var renderer = this.context.getRenderer();
-            var camera = this.context.getCamera();
-
-            var v = camera.getScreenPos(this.getPos());
-            renderer.circle(v.x, v.y, 7 / camera.zoom, this.selected ? '#1cff3e' : '#ffffff', this.selected ? '#0d7f1f' : '#000000', 1 / camera.zoom);
-        }
-    }, {
-        key: 'contains',
-        value: function contains(pos) {
-            return circleContains(this.transform, pos);
-        }
-    }, {
-        key: 'sContains',
-        value: function sContains(pos) {
-            return this.contains(pos);
-        }
-    }, {
-        key: 'setPos',
-        value: function setPos(v) {
-            if (this.input != undefined && this.connection != undefined) {
-                // Snap to end points of wires
-                this.input.straight = false;
-                this.connection.straight = false;
-                v.x = snap(this.input, v.x, this.input.curve.p1.x);
-                v.y = snap(this.input, v.y, this.input.curve.p1.y);
-                v.x = snap(this.connection, v.x, this.connection.curve.p2.x);
-                v.y = snap(this.connection, v.y, this.connection.curve.p2.y);
+    _createClass(ContextMenu, [{
+        key: "onKeyDown",
+        value: function onKeyDown(code) {
+            if (code === ESC_KEY && !this.hidden) {
+                this.hide();
+                return;
             }
+        }
+    }, {
+        key: "onShow",
+        value: function onShow() {
+            _get(ContextMenu.prototype.__proto__ || Object.getPrototypeOf(ContextMenu.prototype), "onShow", this).call(this);
 
-            _get(WirePort.prototype.__proto__ || Object.getPrototypeOf(WirePort.prototype), 'setPos', this).call(this, v);
-        }
-    }, {
-        key: 'getIndex',
-        value: function getIndex() {
-            return 0;
-        }
-    }, {
-        key: 'getDir',
-        value: function getDir() {
-            return this.transform.getMatrix().mul(V(-1, 0)).sub(this.transform.pos).normalize();
-        }
-    }, {
-        key: 'getODir',
-        value: function getODir() {
-            return this.transform.getMatrix().mul(V(1, 0)).sub(this.transform.pos).normalize();
-        }
-    }, {
-        key: 'getCullBox',
-        value: function getCullBox() {
-            return this.transform;
-        }
-    }, {
-        key: 'getInputAmount',
-        value: function getInputAmount() {
-            return 1;
-        }
-    }, {
-        key: 'getName',
-        value: function getName() {
-            return this.getDisplayName();
-        }
-    }, {
-        key: 'getDisplayName',
-        value: function getDisplayName() {
-            return "Port";
-        }
-    }, {
-        key: 'input',
-        set: function set(input) {
-            this._input = input;
-            if (!this.hasSetTransform) {
-                this.hasSetTransform = true;
-                this.transform = new Transform(input.curve.p2.copy(), V(15, 15), 0, this.context.getCamera());
-            }
-        },
-        get: function get() {
-            return this._input;
+            var pos = Input.getRawMousePos();
+            this.setPos(V(pos.x, pos.y));
         }
     }]);
 
-    return WirePort;
-}(IOObject);
+    return ContextMenu;
+}(Popup);
+"use strict";
 
-WirePort.getXMLName = function () {
-    return "port";
-};
-// Importer.types.push(WirePort);
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-function snap(wire, x, c) {
-    if (Math.abs(x - c) <= WIRE_SNAP_THRESHOLD) {
-        wire.straight = true;
-        return c;
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var CopyModule = function (_Module) {
+    _inherits(CopyModule, _Module);
+
+    function CopyModule(parent, divName) {
+        _classCallCheck(this, CopyModule);
+
+        return _possibleConstructorReturn(this, (CopyModule.__proto__ || Object.getPrototypeOf(CopyModule)).call(this, parent, divName));
     }
-    return x;
+
+    _createClass(CopyModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(selectionTool.selections.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("copy");
+        }
+    }]);
+
+    return CopyModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var CutModule = function (_Module) {
+    _inherits(CutModule, _Module);
+
+    function CutModule(parent, divName) {
+        _classCallCheck(this, CutModule);
+
+        return _possibleConstructorReturn(this, (CutModule.__proto__ || Object.getPrototypeOf(CutModule)).call(this, parent, divName));
+    }
+
+    _createClass(CutModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(selectionTool.selections.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("cut");
+        }
+    }]);
+
+    return CutModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var PasteModule = function (_Module) {
+    _inherits(PasteModule, _Module);
+
+    function PasteModule(parent, divName) {
+        _classCallCheck(this, PasteModule);
+
+        return _possibleConstructorReturn(this, (PasteModule.__proto__ || Object.getPrototypeOf(PasteModule)).call(this, parent, divName));
+    }
+
+    _createClass(PasteModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(false);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            document.execCommand("copy");
+        }
+    }]);
+
+    return PasteModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var RedoModule = function (_Module) {
+    _inherits(RedoModule, _Module);
+
+    function RedoModule(parent, divName) {
+        _classCallCheck(this, RedoModule);
+
+        return _possibleConstructorReturn(this, (RedoModule.__proto__ || Object.getPrototypeOf(RedoModule)).call(this, parent, divName));
+    }
+
+    _createClass(RedoModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(getCurrentContext().designer.history.redoStack.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            getCurrentContext().designer.history.redo();
+        }
+    }]);
+
+    return RedoModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SelectAllModule = function (_Module) {
+    _inherits(SelectAllModule, _Module);
+
+    function SelectAllModule(parent, divName) {
+        _classCallCheck(this, SelectAllModule);
+
+        return _possibleConstructorReturn(this, (SelectAllModule.__proto__ || Object.getPrototypeOf(SelectAllModule)).call(this, parent, divName));
+    }
+
+    _createClass(SelectAllModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(false);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            selectionTool.selectAll();
+            render();
+        }
+    }]);
+
+    return SelectAllModule;
+}(Module);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var UndoModule = function (_Module) {
+    _inherits(UndoModule, _Module);
+
+    function UndoModule(parent, divName) {
+        _classCallCheck(this, UndoModule);
+
+        return _possibleConstructorReturn(this, (UndoModule.__proto__ || Object.getPrototypeOf(UndoModule)).call(this, parent, divName));
+    }
+
+    _createClass(UndoModule, [{
+        key: "onShow",
+        value: function onShow() {
+            this.setDisabled(getCurrentContext().designer.history.undoStack.length == 0);
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {
+            this.parent.hide();
+            getCurrentContext().designer.history.undo();
+        }
+    }]);
+
+    return UndoModule;
+}(Module);
+"use strict";
+
+var Exporter = function () {
+    var projectNameInput = document.getElementById("project-name");
+
+    return {
+        ROOT: undefined,
+        saveFile: function saveFile() {
+            var data = this.write(getCurrentContext());
+            var projectName = projectNameInput.value;
+            if (projectName === "Untitled Circuit*") projectName = "Untitled Circuit";
+            var filename = projectName + ".circuit";
+
+            var file = new Blob([data], { type: "text/plain" });
+            if (window.navigator.msSaveOrOpenBlob) {
+                // IE10+
+                window.navigator.msSaveOrOpenBlob(file, filename);
+                saved = true;
+            } else {
+                // Others
+                var a = document.createElement("a");
+                var url = URL.createObjectURL(file);
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function () {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    saved = true;
+                }, 0);
+            }
+        },
+        write: function write(context) {
+            var root = new window.DOMParser().parseFromString("<?xml version=\"1.0\" encoding=\"UTF-8\"?><project></project>", "text/xml");
+            this.ROOT = root;
+
+            var objects = context.getObjects();
+            var wires = context.getWires();
+
+            var projectNode = getChildNode(root, "project");
+
+            var icNode = createChildNode(projectNode, "ics");
+
+            this.writeICs(icNode);
+            this.writeGroup(projectNode, objects, wires);
+
+            return root.xml ? root.xml : new XMLSerializer().serializeToString(root);
+        },
+        writeGroup: function writeGroup(node, objects, wires) {
+            var objectsNode = createChildNode(node, "objects");
+            var wiresNode = createChildNode(node, "wires");
+
+            for (var i = 0; i < objects.length; i++) {
+                objects[i].writeTo(objectsNode);
+            }for (var i = 0; i < wires.length; i++) {
+                wires[i].writeTo(wiresNode);
+            }
+        },
+        writeICs: function writeICs(node) {
+            for (var i = 0; i < ICData.ICs.length; i++) {
+                var ic = ICData.ICs[i];
+                var ICNode = createChildNode(node, "ic");
+                createTextElement(ICNode, "icuid", ic.icuid);
+                createTextElement(ICNode, "width", ic.transform.size.x);
+                createTextElement(ICNode, "height", ic.transform.size.y);
+
+                var iportNode = createChildNode(ICNode, "iports");
+                for (var j = 0; j < ic.iports.length; j++) {
+                    ic.iports[j].writeTo(iportNode);
+                }var oportNode = createChildNode(ICNode, "oports");
+                for (var j = 0; j < ic.oports.length; j++) {
+                    ic.oports[j].writeTo(oportNode);
+                }var componentsNode = createChildNode(ICNode, "components");
+                var objects = ic.inputs.concat(ic.components, ic.outputs);
+                var wires = getAllWires(objects);
+                this.writeGroup(componentsNode, objects, wires);
+            }
+        }
+    };
+}();
+
+// UTILS
+function createChildNode(parent, tag) {
+    var child = Exporter.ROOT.createElement(tag);
+    parent.appendChild(child);
+    return child;
 }
+
+function createTextElement(node, tag, text) {
+    var a = Exporter.ROOT.createElement(tag);
+    var b = Exporter.ROOT.createTextNode(text);
+    a.appendChild(b);
+    node.appendChild(a);
+}
+"use strict";
+
+var Importer = function () {
+    var fileInput = document.getElementById('file-input');
+
+    return {
+        types: [],
+        openFile: function openFile() {
+            // TODO: Custom popup w/ option to save
+            var open = confirm("Are you sure you want to overwrite your current scene?");
+
+            if (open) {
+                reset();
+
+                var reader = new FileReader();
+
+                reader.onload = function (e) {
+                    Importer.load(reader.result, getCurrentContext());
+                    render();
+                };
+
+                reader.readAsText(fileInput.files[0]);
+            }
+        },
+        load: function load(text, context) {
+            //
+            // Why?!?!
+            // 
+            // // Remove all whitespace from XML file except for header
+            // var header = text.substring(0, text.indexOf(">")+1);
+            // text = header + text.substring(text.indexOf(">")+1).replace(/\s/g,'');
+
+            var root = new window.DOMParser().parseFromString(text, "text/xml");
+            if (root.documentElement.nodeName == "parsererror") return;
+
+            var project = getChildNode(root, "project");
+            var icsNode = getChildNode(project, "ics");
+
+            var ics = this.loadICs(icsNode, context);
+
+            var group = this.loadGroup(project, context, ics);
+            context.addObjects(group.objects);
+            context.addWires(group.wires);
+
+            for (var i = 0; i < ics.length; i++) {
+                ICData.add(ics[i]);
+            }context.redistributeUIDs();
+            ICData.redistributeUIDs();
+
+            return group;
+        },
+        loadGroup: function loadGroup(node, context, ics) {
+            var objectsNode = getChildNode(node, "objects");
+            var wiresNode = getChildNode(node, "wires");
+
+            var objects = [];
+            var wires = [];
+
+            for (var i = 0; i < this.types.length; i++) {
+                var type = this.types[i];
+                var nodes = getChildrenByTagName(objectsNode, type.getXMLName());
+                for (var j = 0; j < nodes.length; j++) {
+                    objects.push(new type(context).load(nodes[j], ics));
+                }
+            }
+
+            var wiresArr = getChildrenByTagName(wiresNode, "wire");
+            for (var i = 0; i < wiresArr.length; i++) {
+                wires.push(new Wire(context).load(wiresArr[i]));
+            }for (var i = 0; i < wires.length; i++) {
+                wires[i].loadConnections(wiresArr[i], objects);
+            }return { objects: objects, wires: wires };
+        },
+        loadICs: function loadICs(node, context) {
+            var ics = [];
+            var icNodes = getChildrenByTagName(node, "ic");
+            for (var i = 0; i < icNodes.length; i++) {
+                var icNode = icNodes[i];
+                var icuid = getIntValue(getChildNode(icNode, "icuid"));
+                var width = getIntValue(getChildNode(icNode, "width"));
+                var height = getIntValue(getChildNode(icNode, "height"));
+
+                var componentsNode = getChildNode(icNode, "components");
+                var group = this.loadGroup(componentsNode, context, ics);
+                var data = ICData.create(group.objects);
+
+                data.icuid = icuid;
+                data.transform.setSize(V(width, height));
+
+                var iports = getChildrenByTagName(getChildNode(icNode, "iports"), "iport");
+                for (var j = 0; j < iports.length; j++) {
+                    data.iports[j] = new IPort().load(iports[j]);
+                }var oports = getChildrenByTagName(getChildNode(icNode, "oports"), "oport");
+                for (var j = 0; j < oports.length; j++) {
+                    data.oports[j] = new OPort().load(oports[j]);
+                }ics.push(data);
+            }
+            return ics;
+        }
+    };
+}();
+
+// UTILS
+function getChildNode(parent, name) {
+    for (var i = 0; i < parent.childNodes.length; i++) {
+        if (parent.childNodes[i].nodeName === name) return parent.childNodes[i];
+    }
+    return undefined;
+}
+function getChildrenByTagName(parent, name) {
+    var children = [];
+    for (var i = 0; i < parent.childNodes.length; i++) {
+        if (parent.childNodes[i].nodeName === name) children.push(parent.childNodes[i]);
+    }
+    return children;
+}
+function getBooleanValue(node, def) {
+    if (node == undefined) return def;
+    return node.childNodes[0].nodeValue === "true" ? true : false;
+}
+function getIntValue(node, def) {
+    if (node == undefined) return def;
+    return parseInt(node.childNodes[0].nodeValue);
+}
+function getFloatValue(node, def) {
+    if (node == undefined) return def;
+    return parseFloat(node.childNodes[0].nodeValue);
+}
+function getStringValue(node, def) {
+    if (node == undefined) return def;
+    return node.childNodes[0].nodeValue;
+}
+"use strict";
+
+var Input = function () {
+    var rawMousePos = new Vector(0, 0);
+    var mousePos = new Vector(0, 0);
+    var prevMousePos = new Vector(0, 0);
+    var worldMousePos = new Vector(0, 0);
+
+    var mouseDown = false;
+    var mouseDownPos = undefined;
+
+    var mouseListeners = [];
+
+    var z = 0;
+
+    var shiftKeyDown = false;
+    var modifierKeyDown = false;
+    var optionKeyDown = false;
+
+    var isDragging = false;
+    var startTapTime = undefined;
+
+    console.log(shiftKeyDown);
+
+    var onKeyDown = function onKeyDown(e) {
+        var code = e.keyCode;
+
+        console.log(shiftKeyDown);
+
+        switch (code) {
+            case SHIFT_KEY:
+                shiftKeyDown = true;
+                break;
+            case CONTROL_KEY:
+            case COMMAND_KEY:
+                modifierKeyDown = true;
+                break;
+            case OPTION_KEY:
+                optionKeyDown = true;
+                getCurrentContext().setCursor("pointer");
+                break;
+            case ENTER_KEY:
+                if (document.activeElement !== document.body) document.activeElement.blur();
+                break;
+        }
+
+        var objects = getCurrentContext().getObjects();
+        for (var i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof Keyboard) objects[i].onKeyDown(code);
+        }
+
+        getCurrentContext().getHistoryManager().onKeyDown(code);
+        if (CurrentTool.onKeyDown(code)) render();
+    };
+    var onKeyUp = function onKeyUp(e) {
+        var code = e.keyCode;
+
+        switch (code) {
+            case SHIFT_KEY:
+                shiftKeyDown = false;
+                break;
+            case CONTROL_KEY:
+            case COMMAND_KEY:
+                modifierKeyDown = false;
+                break;
+            case OPTION_KEY:
+                optionKeyDown = false;
+                getCurrentContext().setCursor("default");
+                break;
+        }
+
+        var objects = getCurrentContext().getObjects();
+        for (var i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof Keyboard) objects[i].onKeyUp(code);
+        }
+
+        if (CurrentTool.onKeyUp(code)) render();
+    };
+    var onDoubleClick = function onDoubleClick(e) {};
+    var onWheel = function onWheel(e) {
+        var camera = getCurrentContext().getCamera();
+        var delta = -e.deltaY / 120.0;
+
+        var factor = 0.95;
+        if (delta < 0) factor = 1 / factor;
+
+        var worldMousePos = camera.getWorldPos(mousePos);
+        camera.zoomBy(factor);
+        var newMousePos = camera.getScreenPos(worldMousePos);
+        var dx = (mousePos.x - newMousePos.x) * camera.zoom;
+        var dy = (mousePos.y - newMousePos.y) * camera.zoom;
+
+        camera.translate(-dx, -dy);
+
+        popup.onWheel();
+
+        render();
+    };
+    var onMouseDown = function onMouseDown(e) {
+        var canvas = getCurrentContext().getRenderer().canvas;
+        var rect = canvas.getBoundingClientRect();
+        isDragging = false;
+        startTapTime = Date.now();
+        mouseDown = true;
+        mouseDownPos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+
+        if (e.button === LEFT_MOUSE_BUTTON) {
+            var shouldRender = false;
+            contextmenu.hide();
+            shouldRender = CurrentTool.onMouseDown(shouldRender);
+            for (var i = 0; i < mouseListeners.length; i++) {
+                var listener = mouseListeners[i];
+                if (!listener.disabled && listener.onMouseDown(shouldRender)) shouldRender = true;
+            }
+            if (shouldRender) render();
+        }
+    };
+    var onMouseMove = function onMouseMove(e) {
+        var canvas = getCurrentContext().getRenderer().canvas;
+        var camera = getCurrentContext().getCamera();
+        var rect = canvas.getBoundingClientRect();
+
+        prevMousePos.x = mousePos.x;
+        prevMousePos.y = mousePos.y;
+
+        rawMousePos = new Vector(e.clientX, e.clientY);
+        mousePos = new Vector(e.clientX - rect.left, e.clientY - rect.top);
+        worldMousePos = camera.getWorldPos(mousePos);
+
+        isDragging = mouseDown && Date.now() - startTapTime > 50;
+
+        var shouldRender = false;
+
+        if (optionKeyDown && isDragging) {
+            var pos = new Vector(mousePos.x, mousePos.y);
+            var dPos = mouseDownPos.sub(pos);
+            camera.translate(camera.zoom * dPos.x, camera.zoom * dPos.y);
+            mouseDownPos = mousePos;
+
+            popup.onMove();
+            shouldRender = true;
+        }
+
+        shouldRender = CurrentTool.onMouseMove(shouldRender) || shouldRender;
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onMouseMove(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+    var onMouseUp = function onMouseUp(e) {
+        mouseDown = false;
+
+        var shouldRender = false;
+        shouldRender = CurrentTool.onMouseUp(shouldRender);
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onMouseUp(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+    var onClick = function onClick(e) {
+        var shouldRender = false;
+        shouldRender = CurrentTool.onClick(shouldRender);
+        for (var i = 0; i < mouseListeners.length; i++) {
+            var listener = mouseListeners[i];
+            if (!listener.disabled && listener.onClick(shouldRender)) shouldRender = true;
+        }
+        if (shouldRender) render();
+    };
+
+    window.addEventListener('keydown', function (e) {
+        onKeyDown(e);
+    }, false);
+    window.addEventListener('keyup', function (e) {
+        onKeyUp(e);
+    }, false);
+
+    return {
+        registerContext: function registerContext(ctx) {
+            var canvas = ctx.getRenderer().canvas;
+            canvas.addEventListener('click', function (e) {
+                return onClick(e);
+            }, false);
+            canvas.addEventListener('dblclick', function (e) {
+                return onDoubleClick(e);
+            }, false);
+            // if (browser.name !== "Firefox")
+            canvas.addEventListener('wheel', function (e) {
+                return onWheel(e);
+            }, false);
+            // else
+            //     canvas.addEventListener('DOMMouseScroll', e => onWheel(e), false);
+            canvas.addEventListener('mousedown', function (e) {
+                return onMouseDown(e);
+            }, false);
+            canvas.addEventListener('mouseup', function (e) {
+                return onMouseUp(e);
+            }, false);
+            canvas.addEventListener('mousemove', function (e) {
+                return onMouseMove(e);
+            }, false);
+            canvas.addEventListener('mouseenter', function (e) {
+                if (PlaceItemController.drag) {
+                    onMouseMove(e);onClick(e);PlaceItemController.drag = false;
+                }
+            }, false);
+            canvas.addEventListener("mouseleave", function (e) {
+                if (mouseDown) {
+                    onMouseUp(e);onClick(e);
+                }
+            });
+
+            canvas.addEventListener("contextmenu", function (e) {
+                contextmenu.show(e);
+                e.preventDefault();
+            });
+        },
+        addMouseListener: function addMouseListener(l) {
+            mouseListeners.push(l);
+        },
+        getWorldMousePos: function getWorldMousePos() {
+            return V(worldMousePos);
+        },
+        getRawMousePos: function getRawMousePos() {
+            return V(rawMousePos);
+        },
+        getShiftKeyDown: function getShiftKeyDown() {
+            return shiftKeyDown;
+        },
+        getModifierKeyDown: function getModifierKeyDown() {
+            return modifierKeyDown;
+        },
+        getOptionKeyDown: function getOptionKeyDown() {
+            return optionKeyDown;
+        },
+        getIsDragging: function getIsDragging() {
+            return isDragging;
+        }
+    };
+}();
+"use strict";
+
+var ItemNavController = function () {
+    var tab = document.getElementById("open-items-tab");
+    var container = document.getElementById("items");
+
+    var open = function open() {
+        container.style.width = ITEMNAV_WIDTH + "px";
+        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
+        tab.style.borderColor = "rgba(153, 153, 153, 0.0)";
+        tab.style.backgroundColor = "rgba(200, 200, 200, 0.0)";
+        tab.style.fontSize = "2.5em";
+        tab.innerHTML = "&times;";
+    };
+    var close = function close() {
+        container.style.width = "0px";
+        tab.style.marginLeft = ItemNavController.getTabOffset() + "px";
+        tab.style.borderColor = "rgba(153, 153, 153, 0.7)";
+        tab.style.backgroundColor = "rgba(200, 200, 200, 0.7)";
+        tab.style.fontSize = "2em";
+        tab.innerHTML = "&#9776;";
+    };
+
+    return {
+        disabled: false,
+        isOpen: false,
+        toggle: function toggle() {
+            if (this.isOpen) {
+                this.isOpen = false;
+                close();
+            } else {
+                this.isOpen = true;
+                open();
+            }
+
+            // if (popup)
+            //     popup.onMove();
+        },
+        getTabOffset: function getTabOffset() {
+            return this.isOpen ? ITEMNAV_WIDTH - tab.offsetWidth : 0;
+        }
+    };
+}();
+// ItemNavController.toggle();
+"use strict";
+
+var PlaceItemController = function () {
+    return {
+        disabled: false,
+        drag: false,
+        place: function place(item, not) {
+            if (not) item.not = not;
+            var canvas = getCurrentContext().getRenderer().canvas;
+            var rect = canvas.getBoundingClientRect();
+            itemTool.activate(item, getCurrentContext());
+        },
+        onDragEnd: function onDragEnd(event) {
+            this.drag = true;
+            event.srcElement.parentElement.onclick();
+        }
+    };
+}();
+'use strict';
+
+var SelectionBox = function () {
+    var pos1 = undefined; // First corner
+    var pos2 = undefined; // Second corner
+
+    var getSelections = function getSelections() {
+        var objects = getCurrentContext().getObjects();
+        var selections = [];
+        if (pos1 != undefined) {
+            var trans = new Transform(V((pos1.x + pos2.x) / 2, (pos1.y + pos2.y) / 2), V(Math.abs(pos2.x - pos1.x), Math.abs(pos2.y - pos1.y)), 0, getCurrentContext().getCamera());
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                var t = obj.selectionBoxTransform != undefined ? obj.selectionBoxTransform : obj.transform;
+                if (transformContains(t, trans)) {
+                    selections.push(obj);
+                } else if (obj.inputs != undefined && obj.outputs != undefined) {
+                    // Check if an iport or oport is selected
+                    for (var j = 0; j < obj.inputs.length; j++) {
+                        var input = obj.inputs[j];
+                        if (rectContains(trans, input.getPos())) selections.push(input);
+                    }
+                    for (var j = 0; j < obj.outputs.length; j++) {
+                        var output = obj.outputs[j];
+                        if (rectContains(trans, output.getPos())) selections.push(output);
+                    }
+                }
+            }
+        }
+        return selections;
+    };
+
+    return {
+        disabled: false,
+        onMouseDown: function onMouseDown(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Make sure nothing but blank canvas was clicked
+            if (somethingHappened || !selectionTool.isActive || Input.getOptionKeyDown()) return;
+            for (var i = 0; i < objects.length; i++) {
+                var obj = objects[i];
+                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos) || obj.oPortContains(worldMousePos) !== -1 || obj.iPortContains(worldMousePos) !== -1) return;
+            }
+            for (var i = 0; i < wires.length; i++) {
+                var wire = wires[i];
+                if (wire.getNearestT(worldMousePos.x, worldMousePos.y) !== -1) return;
+            }
+
+            pos1 = V(worldMousePos);
+            popup.hide();
+        },
+        onMouseMove: function onMouseMove() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (pos1 != undefined) {
+                pos2 = V(worldMousePos);
+                popup.hide();
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {},
+        onClick: function onClick(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Stop selection box
+            if (pos1 != undefined) {
+                pos2 = V(worldMousePos);
+                var selections = getSelections();
+                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
+                selectionTool.select(selections, true);
+                pos1 = undefined;
+                pos2 = undefined;
+                return true;
+            }
+        },
+        draw: function draw(renderer) {
+            var camera = renderer.getCamera();
+            if (pos1 != undefined && pos2 != undefined) {
+                var p1 = camera.getScreenPos(pos1);
+                var p2 = camera.getScreenPos(pos2);
+                var w = p2.x - p1.x,
+                    h = p2.y - p1.y;
+                renderer.save();
+                renderer.context.globalAlpha = 0.4;
+                renderer.rect(p1.x + w / 2, p1.y + h / 2, w, h, '#ffffff', '#6666ff', 2 / camera.zoom);
+                renderer.restore();
+            }
+        }
+    };
+}();
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -4321,259 +3643,106 @@ var TitleModule = function (_Module) {
 }(Module);
 "use strict";
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var ContextMenu = function (_Popup) {
-    _inherits(ContextMenu, _Popup);
-
-    function ContextMenu() {
-        _classCallCheck(this, ContextMenu);
-
-        var _this = _possibleConstructorReturn(this, (ContextMenu.__proto__ || Object.getPrototypeOf(ContextMenu)).call(this, "context-menu"));
-
-        _this.add(new CutModule(_this, "context-menu-cut"));
-        _this.add(new CopyModule(_this, "context-menu-copy"));
-        _this.add(new PasteModule(_this, "context-menu-paste"));
-        _this.add(new SelectAllModule(_this, "context-menu-select-all"));
-
-        _this.add(new UndoModule(_this, "context-menu-undo"));
-        _this.add(new RedoModule(_this, "context-menu-redo"));
-        return _this;
+var SideNavController = function () {
+    var tab = document.getElementById("open-sive-nav-button");
+    var tab2 = document.getElementById("open-items-tab");
+    var container = document.getElementById("sidenav");
+    var otherContent = document.getElementById("content");
+    var overlay = document.getElementById("overlay");
+    if (overlay) {
+        overlay.addEventListener("transitionend", function (event) {
+            if (!SideNavController.isOpen) overlay.style.visibility = "hidden";
+        }, false);
     }
 
-    _createClass(ContextMenu, [{
-        key: "onKeyDown",
-        value: function onKeyDown(code) {
-            if (code === ESC_KEY && !this.hidden) {
-                this.hide();
-                return;
+    var open = function open() {
+        container.style.width = SIDENAV_WIDTH + "px";
+        otherContent.style.marginLeft = SIDENAV_WIDTH + "px";
+        overlay.style.visibility = "visible";
+        overlay.style.opacity = "1";
+        overlay.onclick = function () {
+            SideNavController.toggle();
+        };
+    };
+    var close = function close() {
+        container.style.width = "0px";
+        otherContent.style.marginLeft = "0px";
+        overlay.style.opacity = "0";
+        overlay.onclick = function () {};
+    };
+
+    return {
+        disabled: false,
+        isOpen: false,
+        toggle: function toggle() {
+            if (this.isOpen) {
+                this.isOpen = false;
+                close();
+            } else {
+                this.isOpen = true;
+                open();
             }
+        },
+        getWidth: function getWidth() {
+            return this.isOpen ? SIDENAV_WIDTH : 0;
         }
-    }, {
-        key: "onShow",
-        value: function onShow() {
-            _get(ContextMenu.prototype.__proto__ || Object.getPrototypeOf(ContextMenu.prototype), "onShow", this).call(this);
-
-            var pos = Input.getRawMousePos();
-            this.setPos(V(pos.x, pos.y));
-        }
-    }]);
-
-    return ContextMenu;
-}(Popup);
+    };
+}();
+// SideNavController.toggle();
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+var Tool = function () {
+    function Tool() {
+        _classCallCheck(this, Tool);
 
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var CopyModule = function (_Module) {
-    _inherits(CopyModule, _Module);
-
-    function CopyModule(parent, divName) {
-        _classCallCheck(this, CopyModule);
-
-        return _possibleConstructorReturn(this, (CopyModule.__proto__ || Object.getPrototypeOf(CopyModule)).call(this, parent, divName));
+        this.isActive = false;
     }
 
-    _createClass(CopyModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(selectionTool.selections.length == 0);
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            document.execCommand("copy");
-        }
-    }]);
+    _createClass(Tool, [{
+        key: "activate",
+        value: function activate() {
+            if (CurrentTool) CurrentTool.deactivate();
 
-    return CopyModule;
-}(Module);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var CutModule = function (_Module) {
-    _inherits(CutModule, _Module);
-
-    function CutModule(parent, divName) {
-        _classCallCheck(this, CutModule);
-
-        return _possibleConstructorReturn(this, (CutModule.__proto__ || Object.getPrototypeOf(CutModule)).call(this, parent, divName));
-    }
-
-    _createClass(CutModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(selectionTool.selections.length == 0);
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            document.execCommand("cut");
-        }
-    }]);
-
-    return CutModule;
-}(Module);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var PasteModule = function (_Module) {
-    _inherits(PasteModule, _Module);
-
-    function PasteModule(parent, divName) {
-        _classCallCheck(this, PasteModule);
-
-        return _possibleConstructorReturn(this, (PasteModule.__proto__ || Object.getPrototypeOf(PasteModule)).call(this, parent, divName));
-    }
-
-    _createClass(PasteModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(false);
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            document.execCommand("copy");
-        }
-    }]);
-
-    return PasteModule;
-}(Module);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var RedoModule = function (_Module) {
-    _inherits(RedoModule, _Module);
-
-    function RedoModule(parent, divName) {
-        _classCallCheck(this, RedoModule);
-
-        return _possibleConstructorReturn(this, (RedoModule.__proto__ || Object.getPrototypeOf(RedoModule)).call(this, parent, divName));
-    }
-
-    _createClass(RedoModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(getCurrentContext().designer.history.redoStack.length == 0);
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            getCurrentContext().designer.history.redo();
-        }
-    }]);
-
-    return RedoModule;
-}(Module);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var SelectAllModule = function (_Module) {
-    _inherits(SelectAllModule, _Module);
-
-    function SelectAllModule(parent, divName) {
-        _classCallCheck(this, SelectAllModule);
-
-        return _possibleConstructorReturn(this, (SelectAllModule.__proto__ || Object.getPrototypeOf(SelectAllModule)).call(this, parent, divName));
-    }
-
-    _createClass(SelectAllModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(false);
-        }
-    }, {
-        key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            selectionTool.selectAll();
+            CurrentTool = this;
+            this.isActive = true;
             render();
         }
-    }]);
-
-    return SelectAllModule;
-}(Module);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var UndoModule = function (_Module) {
-    _inherits(UndoModule, _Module);
-
-    function UndoModule(parent, divName) {
-        _classCallCheck(this, UndoModule);
-
-        return _possibleConstructorReturn(this, (UndoModule.__proto__ || Object.getPrototypeOf(UndoModule)).call(this, parent, divName));
-    }
-
-    _createClass(UndoModule, [{
-        key: "onShow",
-        value: function onShow() {
-            this.setDisabled(getCurrentContext().designer.history.undoStack.length == 0);
+    }, {
+        key: "deactivate",
+        value: function deactivate() {
+            this.isActive = false;
         }
     }, {
+        key: "onKeyDown",
+        value: function onKeyDown(code) {}
+    }, {
+        key: "onKeyUp",
+        value: function onKeyUp(code) {}
+    }, {
+        key: "onMouseDown",
+        value: function onMouseDown() {}
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {}
+    }, {
+        key: "onMouseUp",
+        value: function onMouseUp() {}
+    }, {
         key: "onClick",
-        value: function onClick() {
-            this.parent.hide();
-            getCurrentContext().designer.history.undo();
-        }
+        value: function onClick() {}
+    }, {
+        key: "draw",
+        value: function draw() {}
     }]);
 
-    return UndoModule;
-}(Module);
+    return Tool;
+}();
+
+var CurrentTool;
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -4965,1123 +4134,264 @@ var WiringTool = function (_Tool) {
 }(Tool);
 
 var wiringTool = new WiringTool();
-"use strict";
+'use strict';
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var TransformController = function () {
+    var pressedObj = undefined;
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+    var isDragging = false;
+    var isRotating = false;
 
-var Action = function () {
-    function Action() {
-        _classCallCheck(this, Action);
+    var dragPos = V(0, 0);
+    var dragObjects = [];
 
-        this.context = getCurrentContext();
-        // Anytime an action is performed, user should need to save
-        saved = false;
-    }
+    var startAngle = 0;
+    var prevAngle = 0;
+    var realAngles = [];
+    var rotateObjects = [];
 
-    _createClass(Action, [{
-        key: "undo",
-        value: function undo() {}
-    }, {
-        key: "redo",
-        value: function redo() {}
-    }]);
+    var startTransforms = []; // For undoing
 
-    return Action;
-}();
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var DeleteAction = function (_Action) {
-    _inherits(DeleteAction, _Action);
-
-    function DeleteAction(obj, oldinput, oldconnection) {
-        _classCallCheck(this, DeleteAction);
-
-        var _this = _possibleConstructorReturn(this, (DeleteAction.__proto__ || Object.getPrototypeOf(DeleteAction)).call(this));
-
-        _this.obj = obj;
-        _this.oldinput = oldinput;
-        _this.oldconnection = oldconnection;
-        return _this;
-    }
-
-    _createClass(DeleteAction, [{
-        key: "undo",
-        value: function undo() {
-            this.context.add(this.obj);
-            if (this.oldinput != undefined) this.oldinput.connect(this.obj);
-            if (this.oldconnection != undefined) this.obj.connect(this.oldconnection);
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            this.obj.remove();
-        }
-    }]);
-
-    return DeleteAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var GroupAction = function (_Action) {
-    _inherits(GroupAction, _Action);
-
-    function GroupAction() {
-        _classCallCheck(this, GroupAction);
-
-        var _this = _possibleConstructorReturn(this, (GroupAction.__proto__ || Object.getPrototypeOf(GroupAction)).call(this));
-
-        _this.actions = [];
-        return _this;
-    }
-
-    _createClass(GroupAction, [{
-        key: "add",
-        value: function add(action) {
-            this.actions.push(action);
-        }
-    }, {
-        key: "undo",
-        value: function undo() {
-            for (var i = this.actions.length - 1; i >= 0; i--) {
-                this.actions[i].undo();
+    var drag = function drag(pos, shift) {
+        var dPos = V(pos).sub(pressedObj.getPos()).sub(dragPos);
+        for (var i = 0; i < dragObjects.length; i++) {
+            var obj = dragObjects[i];
+            var newPos = obj.getPos().add(dPos);
+            if (shift) {
+                newPos = V(Math.floor(newPos.x / GRID_SIZE + 0.5) * GRID_SIZE, Math.floor(newPos.y / GRID_SIZE + 0.5) * GRID_SIZE);
             }
+            obj.setPos(newPos);
         }
-    }, {
-        key: "redo",
-        value: function redo() {
-            for (var i = 0; i < this.actions.length; i++) {
-                this.actions[i].redo();
+        selectionTool.recalculateMidpoint();
+    };
+    var rotate = function rotate(pos, shift) {
+        var origin = selectionTool.midpoint;
+        var dAngle = Math.atan2(pos.y - origin.y, pos.x - origin.x) - prevAngle;
+        for (var i = 0; i < rotateObjects.length; i++) {
+            var newAngle = realAngles[i] + dAngle;
+            realAngles[i] = newAngle;
+            if (shift) newAngle = Math.floor(newAngle / (Math.PI / 4)) * Math.PI / 4;
+            rotateObjects[i].setRotationAbout(newAngle, origin);
+        }
+        prevAngle = dAngle + prevAngle;
+    };
+
+    return {
+        disabled: false,
+        startDrag: function startDrag(obj, worldMousePos) {
+            if (!obj.selected) {
+                selectionTool.deselectAll(true);
+                selectionTool.select([obj], true);
             }
-        }
-    }]);
+            dragObjects = selectionTool.selections;
 
-    return GroupAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var PlaceAction = function (_Action) {
-    _inherits(PlaceAction, _Action);
-
-    function PlaceAction(obj) {
-        _classCallCheck(this, PlaceAction);
-
-        var _this = _possibleConstructorReturn(this, (PlaceAction.__proto__ || Object.getPrototypeOf(PlaceAction)).call(this));
-
-        _this.obj = obj;
-        return _this;
-    }
-
-    _createClass(PlaceAction, [{
-        key: "undo",
-        value: function undo() {
-            this.context.remove(this.obj);
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            this.context.addObject(this.obj);
-        }
-    }]);
-
-    return PlaceAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var PlaceWireAction = function (_Action) {
-    _inherits(PlaceWireAction, _Action);
-
-    function PlaceWireAction(wire) {
-        _classCallCheck(this, PlaceWireAction);
-
-        var _this = _possibleConstructorReturn(this, (PlaceWireAction.__proto__ || Object.getPrototypeOf(PlaceWireAction)).call(this));
-
-        _this.wire = wire;
-        _this.input = _this.wire.input;
-        _this.connection = _this.wire.connection;
-        return _this;
-    }
-
-    _createClass(PlaceWireAction, [{
-        key: "undo",
-        value: function undo() {
-            this.context.remove(this.wire);
-            this.wire.disconnect();
-            this.wire.input.disconnect(this.wire);
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            this.context.add(this.wire);
-            this.wire.connect(this.connection);
-            this.input.connect(this.wire);
-        }
-    }]);
-
-    return PlaceWireAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var SelectAction = function (_Action) {
-    _inherits(SelectAction, _Action);
-
-    function SelectAction(obj, flip) {
-        _classCallCheck(this, SelectAction);
-
-        var _this = _possibleConstructorReturn(this, (SelectAction.__proto__ || Object.getPrototypeOf(SelectAction)).call(this));
-
-        _this.obj = obj;
-        _this.flip = flip;
-        return _this;
-    }
-
-    _createClass(SelectAction, [{
-        key: "undo",
-        value: function undo() {
-            if (this.flip) this.reselect();else this.deselect();
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            if (this.flip) this.deselect();else this.reselect();
-        }
-    }, {
-        key: "reselect",
-        value: function reselect() {
-            selectionTool.select([this.obj]);
-        }
-    }, {
-        key: "deselect",
-        value: function deselect() {
-            selectionTool.deselect([this.obj]);
-        }
-    }]);
-
-    return SelectAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var SplitWireAction = function (_Action) {
-    _inherits(SplitWireAction, _Action);
-
-    function SplitWireAction(wire) {
-        _classCallCheck(this, SplitWireAction);
-
-        var _this = _possibleConstructorReturn(this, (SplitWireAction.__proto__ || Object.getPrototypeOf(SplitWireAction)).call(this));
-
-        _this.wireport = wire.connection;
-        _this.wire = wire;
-        _this.newwire = _this.wireport.connection;
-        _this.connection = _this.newwire.connection;
-        return _this;
-    }
-
-    _createClass(SplitWireAction, [{
-        key: "undo",
-        value: function undo() {
-            this.context.remove(this.wireport);
-            this.context.remove(this.newwire);
-
-            this.wire.disconnect();
-            this.newwire.disconnect();
-
-            this.wire.connect(this.connection);
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            this.context.add(this.wireport);
-            this.context.add(this.newwire);
-
-            this.wire.disconnect();
-
-            this.wire.connect(this.wireport);
-            this.newwire.connect(this.connection);
-        }
-    }]);
-
-    return SplitWireAction;
-}(Action);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var TransformAction = function (_Action) {
-    _inherits(TransformAction, _Action);
-
-    function TransformAction(obj, t0, t1) {
-        _classCallCheck(this, TransformAction);
-
-        var _this = _possibleConstructorReturn(this, (TransformAction.__proto__ || Object.getPrototypeOf(TransformAction)).call(this));
-
-        _this.obj = obj;
-        _this.t0 = t0;
-        _this.t1 = t1;
-        return _this;
-    }
-
-    _createClass(TransformAction, [{
-        key: "undo",
-        value: function undo() {
-            this.obj.setTransform(this.t0);
-            this.updatePopup();
-        }
-    }, {
-        key: "redo",
-        value: function redo() {
-            this.obj.setTransform(this.t1);
-            this.updatePopup();
-        }
-    }, {
-        key: "updatePopup",
-        value: function updatePopup() {
-            if (this.obj.selected) {
-                selectionTool.recalculateMidpoint();
-                popup.onMove();
+            startTransforms = [];
+            for (var i = 0; i < dragObjects.length; i++) {
+                if (!dragObjects[i].transform) return true;
+                startTransforms[i] = dragObjects[i].transform.copy();
             }
-        }
-    }]);
+            isDragging = true;
+            dragPos = worldMousePos.copy().sub(obj.getPos());
+            pressedObj = obj;
+            popup.hide();
+            return true;
+        },
+        startRotation: function startRotation(objs, pos) {
+            rotateObjects = objs;
+            realAngles = [];
+            startTransforms = [];
+            for (var i = 0; i < rotateObjects.length; i++) {
+                if (!rotateObjects[i].transform) return true;
+                realAngles[i] = rotateObjects[i].getAngle();
+                startTransforms[i] = rotateObjects[i].transform.copy();
+            }
+            isRotating = true;
+            startAngle = Math.atan2(pos.y - selectionTool.midpoint.y, pos.x - selectionTool.midpoint.x);
+            prevAngle = startAngle;
+            popup.hide();
+            return true;
+        },
 
-    return TransformAction;
-}(Action);
-"use strict";
+        onMouseDown: function onMouseDown() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var BezierCurve = function () {
-    function BezierCurve(p1, p2, c1, c2) {
-        _classCallCheck(this, BezierCurve);
-
-        this.p1 = V(p1.x, p1.y);
-        this.p2 = V(p2.x, p2.y);
-        this.c1 = V(c1.x, c1.y);
-        this.c2 = V(c2.x, c2.y);
-        this.dirty = true;
-        this.boundingBox = new Transform(0, 0, 0, getCurrentContext().getCamera());
-    }
-
-    _createClass(BezierCurve, [{
-        key: "update",
-        value: function update(p1, p2, c1, c2) {
-            this.p1.x = p1.x;
-            this.p1.y = p1.y;
-            this.p2.x = p2.x;
-            this.p2.y = p2.y;
-            this.c1.x = c1.x;
-            this.c1.y = c1.y;
-            this.c2.x = c2.x;
-            this.c2.y = c2.y;
-        }
-    }, {
-        key: "updateBoundingBox",
-        value: function updateBoundingBox() {
-            if (!this.dirty) return;
-            this.dirty = false;
-
-            var min = V(0, 0);
-            var max = V(0, 0);
-            var end1 = this.getPos(0);
-            var end2 = this.getPos(1);
-            var a = this.c1.sub(this.c2).scale(3).add(this.p2.sub(this.p1));
-            var b = this.p1.sub(this.c1.scale(2).add(this.c2)).scale(2);
-            var c = this.c1.sub(this.p1);
-
-            var discriminant1 = b.y * b.y - 4 * a.y * c.y;
-            discriminant1 = discriminant1 >= 0 ? Math.sqrt(discriminant1) : -1;
-            var t1 = discriminant1 !== -1 ? clamp((-b.y + discriminant1) / (2 * a.y), 0, 1) : 0;
-            var t2 = discriminant1 !== -1 ? clamp((-b.y - discriminant1) / (2 * a.y), 0, 1) : 0;
-            max.y = Math.max(this.getY(t1), this.getY(t2), end1.y, end2.y);
-            min.y = Math.min(this.getY(t1), this.getY(t2), end1.y, end2.y);
-
-            var discriminant2 = b.x * b.x - 4 * a.x * c.x;
-            discriminant2 = discriminant2 >= 0 ? Math.sqrt(discriminant2) : -1;
-            var t3 = discriminant2 !== -1 ? clamp((-b.x + discriminant2) / (2 * a.x), 0, 1) : 0;
-            var t4 = discriminant2 !== -1 ? clamp((-b.x - discriminant2) / (2 * a.x), 0, 1) : 0;
-            max.x = Math.max(this.getX(t1), this.getX(t2), end1.x, end2.x);
-            min.x = Math.min(this.getX(t1), this.getX(t2), end1.x, end2.x);
-
-            this.boundingBox.setSize(V(max.x - min.x, max.y - min.y));
-            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
-        }
-    }, {
-        key: "draw",
-        value: function draw(style, size, renderer) {
-            var camera = renderer.parent.camera;
-
-            var p1 = camera.getScreenPos(this.p1);
-            var p2 = camera.getScreenPos(this.p2);
-            var c1 = camera.getScreenPos(this.c1);
-            var c2 = camera.getScreenPos(this.c2);
-
-            renderer.curve(p1.x, p1.y, p2.x, p2.y, c1.x, c1.y, c2.x, c2.y, style, size);
-        }
-    }, {
-        key: "getX",
-        value: function getX(t) {
-            var it = 1 - t;
-            return this.p1.x * it * it * it + 3 * this.c1.x * t * it * it + 3 * this.c2.x * t * t * it + this.p2.x * t * t * t;
-        }
-    }, {
-        key: "getY",
-        value: function getY(t) {
-            var it = 1 - t;
-            return this.p1.y * it * it * it + 3 * this.c1.y * t * it * it + 3 * this.c2.y * t * t * it + this.p2.y * t * t * t;
-        }
-    }, {
-        key: "getPos",
-        value: function getPos(t) {
-            return V(this.getX(t), this.getY(t));
-        }
-    }, {
-        key: "getDX",
-        value: function getDX(t) {
-            var it = 1 - t;
-            return -3 * this.p1.x * it * it + 3 * this.c1.x * it * (1 - 3 * t) + 3 * this.c2.x * t * (2 - 3 * t) + 3 * this.p2.x * t * t;
-        }
-    }, {
-        key: "getDY",
-        value: function getDY(t) {
-            var it = 1 - t;
-            return -3 * this.p1.y * it * it + 3 * this.c1.y * it * (1 - 3 * t) + 3 * this.c2.y * t * (2 - 3 * t) + 3 * this.p2.y * t * t;
-        }
-    }, {
-        key: "getVel",
-        value: function getVel(t) {
-            return V(this.getDX(t), this.getDY(t));
-        }
-    }, {
-        key: "getDDX",
-        value: function getDDX(t) {
-            var m = -this.p1.x + 3 * this.c1.x - 3 * this.c2.x + this.p2.x;
-            var b = this.p1.x - 2 * this.c1.x + this.c2.x;
-            return 6 * (m * t + b);
-        }
-    }, {
-        key: "getDDY",
-        value: function getDDY(t) {
-            var m = -this.p1.y + 3 * this.c1.y - 3 * this.c2.y + this.p2.y;
-            var b = this.p1.y - 2 * this.c1.y + this.c2.y;
-            return 6 * (m * t + b);
-        }
-    }, {
-        key: "getDist",
-        value: function getDist(t, mx, my) {
-            var dx = this.getX(t) - mx;
-            var dy = this.getY(t) - my;
-            return Math.sqrt(dx * dx + dy * dy);
-        }
-    }, {
-        key: "getDist2",
-        value: function getDist2(t, mx, my) {
-            var dx = this.getX(t) - mx;
-            var dy = this.getY(t) - my;
-            return dx * dx + dy * dy;
-        }
-    }, {
-        key: "getDistDenominator",
-        value: function getDistDenominator(t, mx, my) {
-            var dx = this.getX(t) - mx;
-            var dy = this.getY(t) - my;
-            return dx * dx + dy * dy;
-        }
-    }, {
-        key: "getDistDenominatorDerivative",
-        value: function getDistDenominatorDerivative(t, mx, my) {
-            return 2 * (this.getX(t) - mx) * this.getDX(t) + 2 * (this.getY(t) - my) * this.getDY(t);
-        }
-    }, {
-        key: "getDistNumerator",
-        value: function getDistNumerator(t, mx, my) {
-            var dx = this.getX(t) - mx;
-            var dy = this.getY(t) - my;
-            return this.getDX(t) * dx + this.getDY(t) * dy;
-        }
-    }, {
-        key: "getDistNumeratorDerivative",
-        value: function getDistNumeratorDerivative(t, mx, my) {
-            var dx = this.getX(t) - mx;
-            var dy = this.getY(t) - my;
-            var dbx = this.getDX(t);
-            var dby = this.getDY(t);
-            return dbx * dbx + dx * this.getDDX(t) + dby * dby + dy * this.getDDY(t);
-        }
-    }, {
-        key: "getNearestT",
-        value: function getNearestT(mx, my) {
-            var _this = this;
-
-            var minDist = 1e20;
-            var t0 = -1;
-            for (var tt = 0; tt <= 1.0; tt += 1.0 / WIRE_DIST_ITERATIONS) {
-                var dist = this.getDist(tt, mx, my);
-                if (dist < minDist) {
-                    t0 = tt;
-                    minDist = dist;
+            // Check if rotation circle was pressed
+            if (!isRotating && selectionTool.selections.length > 0) {
+                var d = worldMousePos.sub(selectionTool.midpoint).len2();
+                if (d <= ROTATION_CIRCLE_R2 && d >= ROTATION_CIRCLE_R1) {
+                    return this.startRotation(selectionTool.selections, worldMousePos);
                 }
             }
 
-            // Newton's method to find parameter for when slope is undefined AKA denominator function = 0
-            var t1 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
-                return _this.getDistDenominator(t, x, y);
-            }, function (t, x, y) {
-                return _this.getDistDenominatorDerivative(t, x, y);
-            });
-            if (this.getDist2(t1, mx, my) < WIRE_DIST_THRESHOLD2) return t1;
+            // Go through objects backwards since objects on top are in the back
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
 
-            // Newton's method to find parameter for when slope is 0 AKA numerator function = 0
-            var t2 = findRoots(WIRE_NEWTON_ITERATIONS, t0, mx, my, function (t, x, y) {
-                return _this.getDistNumerator(t, x, y);
-            }, function (t, x, y) {
-                return _this.getDistNumeratorDerivative(t, x, y);
-            });
-            if (this.getDist2(t2, mx, my) < WIRE_DIST_THRESHOLD2) return t2;
+                // Check if object's selection box was pressed
+                if (obj.contains(worldMousePos) || obj.sContains(worldMousePos)) {
+                    pressedObj = obj;
+                    return;
+                }
+            }
+        },
+        onMouseMove: function onMouseMove() {
+            var objects = getCurrentContext().getObjects();
+            var worldMousePos = Input.getWorldMousePos();
 
-            return -1;
-        }
-    }, {
-        key: "getBoundingBox",
-        value: function getBoundingBox() {
-            this.updateBoundingBox();
-            return this.boundingBox;
-        }
-    }, {
-        key: "copy",
-        value: function copy() {
-            return new BezierCurve(this.p1.copy(), this.p2.copy(), this.c1.copy(), this.c2.copy());
-        }
-    }, {
-        key: "writeTo",
-        value: function writeTo(node) {
-            var bezierNode = createChildNode(node, "bezier");
-            createTextElement(bezierNode, "p1x", this.p1.x);
-            createTextElement(bezierNode, "p1y", this.p1.y);
-            createTextElement(bezierNode, "p2x", this.p2.x);
-            createTextElement(bezierNode, "p2y", this.p2.y);
-            createTextElement(bezierNode, "c1x", this.c1.x);
-            createTextElement(bezierNode, "c1y", this.c1.y);
-            createTextElement(bezierNode, "c2x", this.c2.x);
-            createTextElement(bezierNode, "c2y", this.c2.y);
-        }
-    }, {
-        key: "load",
-        value: function load(node) {
-            var p1 = V(getFloatValue(getChildNode(node, "p1x")), getFloatValue(getChildNode(node, "p1y")));
-            var p2 = V(getFloatValue(getChildNode(node, "p2x")), getFloatValue(getChildNode(node, "p2y")));
-            var c1 = V(getFloatValue(getChildNode(node, "c1x")), getFloatValue(getChildNode(node, "c1y")));
-            var c2 = V(getFloatValue(getChildNode(node, "c2x")), getFloatValue(getChildNode(node, "c2y")));
-            this.update(p1, p2, c1, c2);
-        }
-    }]);
+            // Begin dragging
+            if (!isDragging && pressedObj != undefined) {
+                return this.startDrag(pressedObj, worldMousePos);
+            }
 
-    return BezierCurve;
+            // Actually move the object(s)
+            if (isDragging) {
+                drag(worldMousePos, Input.getShiftKeyDown());
+                return true;
+            }
+            if (isRotating) {
+                rotate(worldMousePos, Input.getShiftKeyDown());
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {
+            pressedObj = undefined;
+
+            // Stop dragging
+            if (isDragging) {
+                // Add transform action
+                getCurrentContext().addAction(createTransformAction(dragObjects, startTransforms));
+                isDragging = false;
+                return true;
+            }
+
+            // Stop rotating
+            if (isRotating) {
+                // Add transform action
+                getCurrentContext().addAction(createTransformAction(rotateObjects, startTransforms));
+                isRotating = false;
+                return true;
+            }
+        },
+        onClick: function onClick() {},
+        draw: function draw(renderer) {
+            // Draw rotation circle
+            var camera = renderer.getCamera();
+            var pos = camera.getScreenPos(selectionTool.midpoint);
+            var r = ROTATION_CIRCLE_RADIUS / camera.zoom;
+            if (isRotating) {
+                renderer.save();
+                renderer.context.fillStyle = '#fff';
+                renderer.context.strokeStyle = '#000';
+                renderer.context.lineWidth = 5;
+                renderer.context.globalAlpha = 0.4;
+                renderer.context.beginPath();
+                renderer.context.moveTo(pos.x, pos.y);
+                var da = (prevAngle - startAngle) % (2 * Math.PI);
+                if (da < 0) da += 2 * Math.PI;
+                renderer.context.arc(pos.x, pos.y, r, startAngle, prevAngle, da > Math.PI);
+                renderer.context.fill();
+                renderer.context.closePath();
+                renderer.restore();
+            }
+        }
+    };
 }();
 "use strict";
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+var WireController = function () {
+    var pressedPort = undefined;
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+    var pressedWire = undefined;
+    var wireSplitPoint = -1;
 
-var Matrix2x3 = function () {
-    function Matrix2x3(other) {
-        _classCallCheck(this, Matrix2x3);
+    return {
+        disabled: false,
+        onMouseDown: function onMouseDown(somethingHappened) {
+            var objects = getCurrentContext().getObjects();
+            var wires = getCurrentContext().getWires();
+            var worldMousePos = Input.getWorldMousePos();
 
-        this.mat = [];
-        this.identity();
-        if (other instanceof Matrix2x3) {
-            for (var i = 0; i < 2 * 3; i++) {
-                this.mat[i] = other.mat[i];
+            // Make sure nothing else has happened
+            if (somethingHappened) return;
+
+            // Check if a IOPort was clicked to start creating new wire
+            for (var i = objects.length - 1; i >= 0; i--) {
+                var obj = objects[i];
+
+                // Check if port was clicked, then activate wire tool
+                var ii;
+                if ((ii = obj.oPortContains(worldMousePos)) !== -1) {
+                    pressedPort = obj.outputs[ii];
+                    return;
+                }
+                if ((ii = obj.iPortContains(worldMousePos)) !== -1) {
+                    pressedPort = obj.inputs[ii];
+                    return;
+                }
+            }
+
+            // Check if a wire was pressed
+            for (var i = 0; i < wires.length; i++) {
+                var wire = wires[i];
+                var t;
+                if ((t = wire.getNearestT(worldMousePos.x, worldMousePos.y)) !== -1) {
+                    pressedWire = wire;
+                    wireSplitPoint = t;
+                    return true;
+                }
+            }
+        },
+        onMouseMove: function onMouseMove(somethingHappened) {
+            var worldMousePos = Input.getWorldMousePos();
+
+            // Make sure nothing else has happened
+            if (somethingHappened) return;
+
+            // Begin dragging new wire
+            if (pressedPort != undefined) {
+                wiringTool.activate(pressedPort, getCurrentContext());
+                pressedPort = undefined;
+                return true;
+            }
+
+            // Begin splitting wire
+            if (pressedWire != undefined) {
+                pressedWire.split(wireSplitPoint);
+                var action = new SplitWireAction(pressedWire);
+                getCurrentContext().addAction(action);
+                selectionTool.deselectAll(true);
+                selectionTool.select([pressedWire.connection], true);
+                TransformController.startDrag(pressedWire.connection, worldMousePos);
+                pressedWire = undefined;
+                return true;
+            }
+        },
+        onMouseUp: function onMouseUp() {},
+        onClick: function onClick(somethingHappened) {
+            // Make sure nothing else has happened
+            if (somethingHappened) {
+                pressedPort = undefined;
+                pressedWire = undefined;
+                return;
+            }
+
+            // Clicking also begins dragging
+            if (pressedPort != undefined) {
+                wiringTool.activate(pressedPort, getCurrentContext());
+                pressedPort = undefined;
+                return true;
+            }
+
+            // Select wire
+            if (pressedWire != undefined) {
+                if (!Input.getShiftKeyDown()) selectionTool.deselectAll(true);
+                selectionTool.select([pressedWire], true);
+                pressedWire = undefined;
+                return true;
             }
         }
-    }
-
-    _createClass(Matrix2x3, [{
-        key: "zero",
-        value: function zero() {
-            for (var i = 0; i < 2 * 3; i++) {
-                this.mat[i] = 0;
-            }return this;
-        }
-    }, {
-        key: "identity",
-        value: function identity() {
-            this.zero();
-
-            this.mat[0] = 1.0;
-            this.mat[3] = 1.0;
-
-            return this;
-        }
-    }, {
-        key: "mul",
-        value: function mul(v) {
-            var result = V(0, 0);
-            result.x = this.mat[0] * v.x + this.mat[2] * v.y + this.mat[4];
-            result.y = this.mat[1] * v.x + this.mat[3] * v.y + this.mat[5];
-            return result;
-        }
-    }, {
-        key: "mult",
-        value: function mult(m) {
-            var result = new Matrix2x3();
-            result.mat[0] = this.mat[0] * m.mat[0] + this.mat[2] * m.mat[1];
-            result.mat[1] = this.mat[1] * m.mat[0] + this.mat[3] * m.mat[1];
-            result.mat[2] = this.mat[0] * m.mat[2] + this.mat[2] * m.mat[3];
-            result.mat[3] = this.mat[1] * m.mat[2] + this.mat[3] * m.mat[3];
-            result.mat[4] = this.mat[0] * m.mat[4] + this.mat[2] * m.mat[5] + this.mat[4];
-            result.mat[5] = this.mat[1] * m.mat[4] + this.mat[3] * m.mat[5] + this.mat[5];
-            return result;
-        }
-    }, {
-        key: "translate",
-        value: function translate(v) {
-            this.mat[4] += this.mat[0] * v.x + this.mat[2] * v.y;
-            this.mat[5] += this.mat[1] * v.x + this.mat[3] * v.y;
-        }
-    }, {
-        key: "rotate",
-        value: function rotate(theta) {
-            var c = Math.cos(theta);
-            var s = Math.sin(theta);
-            var m11 = this.mat[0] * c + this.mat[2] * s;
-            var m12 = this.mat[1] * c + this.mat[3] * s;
-            var m21 = this.mat[0] * -s + this.mat[2] * c;
-            var m22 = this.mat[1] * -s + this.mat[3] * c;
-            this.mat[0] = m11;
-            this.mat[1] = m12;
-            this.mat[2] = m21;
-            this.mat[3] = m22;
-        }
-    }, {
-        key: "scale",
-        value: function scale(s) {
-            this.mat[0] *= s.x;
-            this.mat[1] *= s.x;
-            this.mat[2] *= s.y;
-            this.mat[3] *= s.y;
-        }
-    }, {
-        key: "inverse",
-        value: function inverse() {
-            var inv = new Array(3 * 2);
-            var det;
-
-            inv[0] = this.mat[3];
-            inv[1] = -this.mat[1];
-            inv[2] = -this.mat[2];
-            inv[3] = this.mat[0];
-            inv[4] = this.mat[2] * this.mat[5] - this.mat[4] * this.mat[3];
-            inv[5] = this.mat[4] * this.mat[1] - this.mat[0] * this.mat[5];
-
-            det = this.mat[0] * this.mat[3] - this.mat[1] * this.mat[2];
-
-            if (det == 0) return undefined;
-
-            det = 1.0 / det;
-
-            var m = new Matrix2x3();
-            for (var i = 0; i < 2 * 3; i++) {
-                m.mat[i] = inv[i] * det;
-            }return m;
-        }
-    }, {
-        key: "print",
-        value: function print() {
-            console.log("[" + this.mat[0].toFixed(3) + ", " + this.mat[2].toFixed(3) + ", " + this.mat[4].toFixed(3) + "]\n" + "[" + this.mat[1].toFixed(3) + ", " + this.mat[3].toFixed(3) + ", " + this.mat[5].toFixed(3) + "]");
-        }
-    }]);
-
-    return Matrix2x3;
-}();
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Transform = function () {
-    function Transform(pos, size, angle, camera) {
-        _classCallCheck(this, Transform);
-
-        this.parent = undefined;
-        this.pos = V(pos.x, pos.y);
-        this.size = V(size.x, size.y);
-        this.angle = angle;
-        this.scale = V(1, 1);
-        this.corners = [];
-        this.localCorners = [];
-        this.camera = camera;
-        this.dirty = true;
-        this.dirtySize = true;
-        this.dirtyCorners = true;
-        this.updateMatrix();
-    }
-
-    _createClass(Transform, [{
-        key: "updateMatrix",
-        value: function updateMatrix(c) {
-            if (!this.dirty) return;
-            this.dirty = false;
-
-            this.matrix = new Matrix2x3();
-            this.matrix.translate(this.pos);
-            this.matrix.rotate(this.angle);
-            this.matrix.scale(this.scale);
-
-            if (this.parent != undefined) this.matrix = this.parent.getMatrix().mult(this.matrix);
-
-            this.inverse = this.matrix.inverse();
-        }
-    }, {
-        key: "updateSize",
-        value: function updateSize() {
-            if (!this.dirtySize) return;
-            this.dirtySize = false;
-
-            this.localCorners = [this.size.scale(V(-0.5, 0.5)), this.size.scale(V(0.5, 0.5)), this.size.scale(V(0.5, -0.5)), this.size.scale(V(-0.5, -0.5))];
-
-            this.radius = Math.sqrt(this.size.x * this.size.x + this.size.y * this.size.y) / 2;
-        }
-    }, {
-        key: "updateCorners",
-        value: function updateCorners() {
-            if (!this.dirtyCorners) return;
-            this.dirtyCorners = false;
-
-            var corners = this.getLocalCorners();
-            for (var i = 0; i < 4; i++) {
-                this.corners[i] = this.toWorldSpace(corners[i]);
-            }
-        }
-    }, {
-        key: "transformCtx",
-        value: function transformCtx(ctx) {
-            this.updateMatrix();
-            var m = new Matrix2x3(this.matrix);
-            var v = this.camera.getScreenPos(V(m.mat[4], m.mat[5]));
-            m.mat[4] = v.x, m.mat[5] = v.y;
-            m.scale(V(1 / this.camera.zoom, 1 / this.camera.zoom));
-            ctx.setTransform(m.mat[0], m.mat[1], m.mat[2], m.mat[3], m.mat[4], m.mat[5]);
-        }
-    }, {
-        key: "rotateAbout",
-        value: function rotateAbout(a, c) {
-            this.setAngle(a);
-            this.setPos(this.pos.sub(c));
-            var cos = Math.cos(a),
-                sin = Math.sin(a);
-            var xx = this.pos.x * cos - this.pos.y * sin;
-            var yy = this.pos.y * cos + this.pos.x * sin;
-            this.setPos(V(xx, yy).add(c));
-            this.dirty = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setParent",
-        value: function setParent(t) {
-            this.parent = t;
-            this.dirty = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setCamera",
-        value: function setCamera(c) {
-            this.camera = c;
-        }
-    }, {
-        key: "setPos",
-        value: function setPos(p) {
-            this.pos.x = p.x;
-            this.pos.y = p.y;
-            this.dirty = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setAngle",
-        value: function setAngle(a) {
-            this.angle = a;
-            this.dirty = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setScale",
-        value: function setScale(s) {
-            this.scale.x = s.x;
-            this.scale.y = s.y;
-            this.dirty = true;
-        }
-    }, {
-        key: "setSize",
-        value: function setSize(s) {
-            this.size.x = s.x;
-            this.size.y = s.y;
-            this.dirtySize = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setWidth",
-        value: function setWidth(w) {
-            this.size.x = w;
-            this.dirtySize = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "setHeight",
-        value: function setHeight(h) {
-            this.size.y = h;
-            this.dirtySize = true;
-            this.dirtyCorners = true;
-        }
-    }, {
-        key: "toLocalSpace",
-        value: function toLocalSpace(v) {
-            // v must be in world coords
-            return this.getInverseMatrix().mul(v);
-        }
-    }, {
-        key: "toWorldSpace",
-        value: function toWorldSpace(v) {
-            // v must be in local coords
-            return this.getMatrix().mul(v);
-        }
-    }, {
-        key: "getPos",
-        value: function getPos() {
-            return V(this.pos.x, this.pos.y);
-        }
-    }, {
-        key: "getAngle",
-        value: function getAngle() {
-            return this.angle;
-        }
-    }, {
-        key: "getScale",
-        value: function getScale() {
-            return V(this.scale.x, this.scale.y);
-        }
-    }, {
-        key: "getSize",
-        value: function getSize() {
-            return this.size;
-        }
-    }, {
-        key: "getRadius",
-        value: function getRadius() {
-            this.updateSize();
-            return this.radius;
-        }
-    }, {
-        key: "getMatrix",
-        value: function getMatrix() {
-            this.updateMatrix();
-            return this.matrix;
-        }
-    }, {
-        key: "getInverseMatrix",
-        value: function getInverseMatrix() {
-            this.updateMatrix();
-            return this.inverse;
-        }
-    }, {
-        key: "getBottomLeft",
-        value: function getBottomLeft() {
-            this.updateCorners();
-            return this.corners[0];
-        }
-    }, {
-        key: "getBottomRight",
-        value: function getBottomRight() {
-            this.updateCorners();
-            return this.corners[1];
-        }
-    }, {
-        key: "getTopRight",
-        value: function getTopRight() {
-            this.updateCorners();
-            return this.corners[2];
-        }
-    }, {
-        key: "getTopLeft",
-        value: function getTopLeft() {
-            this.updateCorners();
-            return this.corners[3];
-        }
-    }, {
-        key: "getCorners",
-        value: function getCorners() {
-            this.updateCorners();
-            return this.corners;
-        }
-    }, {
-        key: "getLocalCorners",
-        value: function getLocalCorners() {
-            this.updateSize();
-            return this.localCorners;
-        }
-    }, {
-        key: "equals",
-        value: function equals(other) {
-            if (!(other instanceof Transform)) return false;
-
-            var m1 = this.getMatrix().mat;
-            var m2 = other.getMatrix().mat;
-            for (var i = 0; i < m1.length; i++) {
-                if (m1[i] !== m2[i]) return false;
-            }
-            return true;
-        }
-    }, {
-        key: "print",
-        value: function print() {
-            this.updateMatrix();
-            this.matrix.print();
-        }
-    }, {
-        key: "copy",
-        value: function copy() {
-            var trans = new Transform(this.pos.copy(), this.size.copy(), this.angle, this.camera);
-            trans.scale = this.scale.copy();
-            trans.dirty = true;
-            return trans;
-        }
-    }]);
-
-    return Transform;
-}();
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Vector = function () {
-    function Vector(x, y) {
-        _classCallCheck(this, Vector);
-
-        this.set(x, y);
-    }
-
-    _createClass(Vector, [{
-        key: "set",
-        value: function set(x, y) {
-            if (x instanceof Vector) {
-                this.x = x.x ? x.x : 0;
-                this.y = x.y ? x.y : 0;
-            } else {
-                this.x = x ? x : 0;
-                this.y = y ? y : 0;
-            }
-        }
-    }, {
-        key: "translate",
-        value: function translate(dx, dy) {
-            if (dx instanceof Vector) this.set(this.add(dx));else this.set(this.x + dx, this.y + dy);
-        }
-    }, {
-        key: "add",
-        value: function add(x, y) {
-            if (x instanceof Vector) return new Vector(this.x + x.x, this.y + x.y);else return new Vector(this.x + x, this.y + y);
-        }
-    }, {
-        key: "sub",
-        value: function sub(x, y) {
-            if (x instanceof Vector) return new Vector(this.x - x.x, this.y - x.y);else return new Vector(this.x - x, this.y - y);
-        }
-    }, {
-        key: "scale",
-        value: function scale(a) {
-            if (a instanceof Vector) return new Vector(a.x * this.x, a.y * this.y);else return new Vector(a * this.x, a * this.y);
-        }
-    }, {
-        key: "normalize",
-        value: function normalize() {
-            var len = this.len();
-            if (len === 0) {
-                return new Vector(0, 0);
-            } else {
-                var invLen = 1 / len;
-                return new Vector(this.x * invLen, this.y * invLen);
-            }
-        }
-    }, {
-        key: "len",
-        value: function len() {
-            return Math.sqrt(this.x * this.x + this.y * this.y);
-        }
-    }, {
-        key: "len2",
-        value: function len2() {
-            return this.x * this.x + this.y * this.y;
-        }
-    }, {
-        key: "distanceTo",
-        value: function distanceTo(v) {
-            return this.sub(v).len();
-        }
-    }, {
-        key: "dot",
-        value: function dot(v) {
-            return this.x * v.x + this.y * v.y;
-        }
-    }, {
-        key: "project",
-        value: function project(v) {
-            return this.scale(v.dot(this) / this.len2());
-        }
-    }, {
-        key: "copy",
-        value: function copy() {
-            return new Vector(this.x, this.y);
-        }
-    }]);
-
-    return Vector;
-}();
-
-// Utility method for a new Vector
-
-
-function V(x, y) {
-    return new Vector(x, y);
-}
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-var Module = function () {
-    function Module(parent, divName, divTextName) {
-        var _this = this;
-
-        _classCallCheck(this, Module);
-
-        this.parent = parent;
-        this.div = document.getElementById(divName);
-        this.divtext = divTextName ? document.getElementById(divTextName) : undefined;
-        this.div.oninput = function () {
-            render();_this.onChange();
-        };
-        this.div.onclick = function () {
-            return _this.onClick();
-        };
-        this.div.onfocus = function () {
-            return _this.onFocus();
-        };
-        this.div.onblur = function () {
-            return _this.onBlur();
-        };
-    }
-
-    _createClass(Module, [{
-        key: "blur",
-        value: function blur() {
-            this.div.blur();
-        }
-    }, {
-        key: "onShow",
-        value: function onShow() {}
-    }, {
-        key: "setValue",
-        value: function setValue(val) {
-            this.div.value = val;
-        }
-    }, {
-        key: "setPlaceholder",
-        value: function setPlaceholder(val) {
-            this.div.placeholder = val;
-        }
-    }, {
-        key: "setVisibility",
-        value: function setVisibility(val) {
-            this.div.style.display = val;
-            if (this.divtext != undefined) this.divtext.style.display = val;
-        }
-    }, {
-        key: "setDisabled",
-        value: function setDisabled(val) {
-            this.div.disabled = val;
-        }
-    }, {
-        key: "getValue",
-        value: function getValue() {
-            return this.div.value;
-        }
-    }, {
-        key: "onChange",
-        value: function onChange() {}
-    }, {
-        key: "onClick",
-        value: function onClick() {}
-    }, {
-        key: "onFocus",
-        value: function onFocus() {
-            this.parent.focused = true;
-        }
-    }, {
-        key: "onBlur",
-        value: function onBlur() {
-            this.parent.focused = false;
-        }
-    }]);
-
-    return Module;
+    };
 }();
 'use strict';
 
@@ -6089,92 +4399,418 @@ var _createClass = function () { function defineProperties(target, props) { for 
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-var Popup = function () {
-    function Popup(divName) {
-        var _this = this;
+var IOObject = function () {
+    function IOObject(context, x, y, w, h, img, isPressable, maxInputs, maxOutputs, selectionBoxWidth, selectionBoxHeight) {
+        _classCallCheck(this, IOObject);
 
-        _classCallCheck(this, Popup);
+        if (context == undefined) context = getCurrentContext();
+        this.context = context;
+        x = x == undefined ? 0 : x;
+        y = y == undefined ? 0 : y;
+        this.transform = new Transform(V(x, y), V(w, h), 0, context.getCamera());
+        this.cullTransform = new Transform(this.transform.getPos(), V(0, 0), 0, this.context.getCamera());
 
-        this.div = document.getElementById(divName);
-        this.div.addEventListener('keydown', function (e) {
-            _this.onKeyDown(e.keyCode);
-        }, false);
-        this.div.addEventListener('keyup', function (e) {
-            _this.onKeyUp(e.keyCode);
-        }, false);
-        this.div.style.position = "absolute";
-        this.focused = false;
+        this.name = this.getDisplayName();
+        this.img = img;
+        this.isOn = false;
+        this.isPressable = isPressable;
+        this.maxInputs = maxInputs;
+        this.maxOutputs = maxOutputs;
+        this.selected = false;
 
-        this.modules = [];
+        if (this.isPressable) this.selectionBoxTransform = new Transform(V(x, y), V(selectionBoxWidth, selectionBoxHeight), 0, context.getCamera());
 
-        this.setPos(V(0, 0));
-        this.hide();
+        this.outputs = [];
+        this.inputs = [];
+
+        if (maxOutputs > 0) this.setOutputAmount(1);
     }
 
-    _createClass(Popup, [{
-        key: 'onKeyDown',
-        value: function onKeyDown(code) {}
-    }, {
-        key: 'onKeyUp',
-        value: function onKeyUp(code) {}
-    }, {
-        key: 'add',
-        value: function add(m) {
-            this.modules.push(m);
+    _createClass(IOObject, [{
+        key: 'setInputAmount',
+        value: function setInputAmount(target) {
+            target = clamp(target, 0, this.maxInputs);
+            while (this.inputs.length > target) {
+                this.inputs.splice(this.inputs.length - 1, 1);
+            }while (this.inputs.length < target) {
+                this.inputs.push(new IPort(this));
+            }for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].updatePosition();
+            }this.onTransformChange();
         }
     }, {
-        key: 'update',
-        value: function update() {
-            this.onShow();
+        key: 'setOutputAmount',
+        value: function setOutputAmount(target) {
+            target = clamp(target, 0, this.maxOutputs);
+            while (this.outputs.length > target) {
+                this.outputs.splice(this.outputs.length - 1, 1);
+            }while (this.outputs.length < target) {
+                this.outputs.push(new OPort(this));
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].updatePosition();
+            }this.onTransformChange();
         }
     }, {
-        key: 'onShow',
-        value: function onShow() {
-            for (var i = 0; i < this.modules.length; i++) {
-                this.modules[i].onShow();
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.isPressable && this.selectionBoxTransform != undefined) {
+                this.selectionBoxTransform.setPos(this.transform.getPos());
+                this.selectionBoxTransform.setAngle(this.transform.getAngle());
+                this.selectionBoxTransform.setScale(this.transform.getScale());
+            }
+            this.updateCullTransform();
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].onTransformChange();
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].onTransformChange();
             }
         }
     }, {
-        key: 'blur',
-        value: function blur() {
-            for (var i = 0; i < this.modules.length; i++) {
-                this.modules[i].blur();
+        key: 'updateCullTransform',
+        value: function updateCullTransform() {
+            // Find min/max points on the object
+            var min = V(-this.transform.size.x / 2, -this.transform.size.y / 2);
+            var max = V(this.transform.size.x / 2, this.transform.size.y / 2);
+            if (this.selectionBoxTransform != undefined) {
+                min.x = Math.min(-this.selectionBoxTransform.size.x / 2, min.x);
+                min.y = Math.min(-this.selectionBoxTransform.size.y / 2, min.y);
+                max.x = Math.max(this.selectionBoxTransform.size.x / 2, max.x);
+                max.y = Math.max(this.selectionBoxTransform.size.y / 2, max.y);
+            }
+            for (var i = 0; i < this.inputs.length; i++) {
+                var iport = this.inputs[i];
+                min.x = Math.min(iport.target.x, min.x);
+                min.y = Math.min(iport.target.y, min.y);
+                max.x = Math.max(iport.target.x, max.x);
+                max.y = Math.max(iport.target.y, max.y);
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                var oport = this.outputs[i];
+                min.x = Math.min(oport.target.x, min.x);
+                min.y = Math.min(oport.target.y, min.y);
+                max.x = Math.max(oport.target.x, max.x);
+                max.y = Math.max(oport.target.y, max.y);
+            }
+            this.cullTransform.setSize(V(max.x - min.x, max.y - min.y));
+            var c = Math.cos(this.transform.getAngle());
+            var s = Math.sin(this.transform.getAngle());
+            var x = (min.x - -this.cullTransform.size.x / 2) * c + (min.y - -this.cullTransform.size.y / 2) * s;
+            var y = (min.y - -this.cullTransform.size.y / 2) * c + (min.x - -this.cullTransform.size.x / 2) * s;
+            this.cullTransform.setPos(this.transform.getPos().add(V(x, y)));
+            this.cullTransform.setAngle(this.transform.getAngle());
+            this.cullTransform.setScale(this.transform.getScale());
+            this.cullTransform.setSize(this.cullTransform.size.add(V(2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS)));
+        }
+    }, {
+        key: 'click',
+        value: function click() {
+            // console.log(this);
+        }
+    }, {
+        key: 'press',
+        value: function press() {}
+    }, {
+        key: 'release',
+        value: function release() {}
+    }, {
+        key: 'activate',
+        value: function activate(on, i) {
+            if (i == undefined) i = 0;
+
+            this.isOn = on;
+            if (this.outputs[i] != undefined) this.outputs[i].activate(on);
+        }
+    }, {
+        key: 'localSpace',
+        value: function localSpace() {
+            var renderer = this.context.getRenderer();
+            renderer.save();
+            this.transform.transformCtx(renderer.context);
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            this.localSpace();
+            for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].draw();
+            }for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].draw(i);
+            }var renderer = this.context.getRenderer();
+            if (this.isPressable && this.selectionBoxTransform != undefined) renderer.rect(0, 0, this.selectionBoxTransform.size.x, this.selectionBoxTransform.size.y, this.getCol(), this.getBorderColor());
+
+            if (this.img != undefined) renderer.image(this.img, 0, 0, this.transform.size.x, this.transform.size.y, this.getImageTint());
+            renderer.restore();
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            for (var i = 0; i < this.outputs.length; i++) {
+                this.outputs[i].remove();
+            }for (var i = 0; i < this.inputs.length; i++) {
+                this.inputs[i].remove();
             }
         }
     }, {
-        key: 'show',
-        value: function show() {
-            this.hidden = false;
-            this.div.style.visibility = "visible";
-            this.div.focus();
-            this.onShow();
+        key: 'contains',
+        value: function contains(pos) {
+            return rectContains(this.transform, pos);
         }
     }, {
-        key: 'hide',
-        value: function hide() {
-            this.hidden = true;
-            this.div.style.visibility = "hidden";
-            this.div.blur();
+        key: 'sContains',
+        value: function sContains(pos) {
+            return !this.isPressable && this.contains(pos) || this.isPressable && !this.contains(pos) && rectContains(this.selectionBoxTransform, pos);
+        }
+    }, {
+        key: 'iPortContains',
+        value: function iPortContains(pos) {
+            for (var i = 0; i < this.inputs.length; i++) {
+                if (this.inputs[i].contains(pos)) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'oPortContains',
+        value: function oPortContains(pos) {
+            for (var i = 0; i < this.outputs.length; i++) {
+                if (this.outputs[i].contains(pos)) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'setContext',
+        value: function setContext(context) {
+            this.context = context;
+            this.transform.setCamera(this.context.getCamera());
+            if (this.selectionBoxTransform != undefined) this.selectionBoxTransform.setCamera(this.context.getCamera());
+        }
+    }, {
+        key: 'setTransform',
+        value: function setTransform(t) {
+            this.transform = t;
+            this.onTransformChange();
         }
     }, {
         key: 'setPos',
         value: function setPos(v) {
-            this.pos = V(v.x, v.y);
-            this.clamp();
-
-            this.div.style.left = this.pos.x + "px";
-            this.div.style.top = this.pos.y + "px";
+            this.transform.setPos(v);
+            this.onTransformChange();
         }
     }, {
-        key: 'clamp',
-        value: function clamp() {
-            this.pos.x = Math.max(Math.min(this.pos.x, window.innerWidth - this.div.clientWidth - 1), ItemNavController.isOpen ? ITEMNAV_WIDTH + 5 : 5);
-            this.pos.y = Math.max(Math.min(this.pos.y, window.innerHeight - this.div.clientHeight - 1), (header ? header.clientHeight : 0) + 5);
+        key: 'setAngle',
+        value: function setAngle(a) {
+            this.transform.setAngle(a);
+            this.onTransformChange();
+        }
+        // setRotationAbout(a, c) {
+        //     this.transform.rotateAbout(a-this.getAngle(), c);
+        //     this.onTransformChange();
+        // }
+
+    }, {
+        key: 'setRotationAbout',
+        value: function setRotationAbout(a, c) {
+            this.transform.rotateAbout(-this.getAngle(), c);
+            this.transform.rotateAbout(a, c);
+            this.onTransformChange();
+        }
+    }, {
+        key: 'setName',
+        value: function setName(name) {
+            this.name = name;
+        }
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.cullTransform;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return this.inputs.length;
+        }
+    }, {
+        key: 'getImageTint',
+        value: function getImageTint() {
+            return this.getCol();
+        }
+    }, {
+        key: 'getCol',
+        value: function getCol() {
+            return this.selected ? '#1cff3e' : undefined;
+        }
+    }, {
+        key: 'getBorderColor',
+        value: function getBorderColor() {
+            return this.selected ? '#0d7f1f' : undefined;
+        }
+    }, {
+        key: 'getPos',
+        value: function getPos() {
+            return this.transform.pos.copy();
+        }
+    }, {
+        key: 'getAngle',
+        value: function getAngle() {
+            return this.transform.angle;
+        }
+    }, {
+        key: 'getSize',
+        value: function getSize() {
+            return this.transform.size;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 8;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 2;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.name;
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "IOObject";
+        }
+    }, {
+        key: 'getRenderer',
+        value: function getRenderer() {
+            return this.context.getRenderer();
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var copy = new this.constructor(this.context);
+            copy.transform = this.transform.copy();
+            copy.name = this.name;
+            if (this.selectionBoxTransform != undefined) copy.selectionBoxTransform = this.selectionBoxTransform.copy();
+            for (var i = 0; i < this.inputs.length; i++) {
+                copy.inputs[i] = this.inputs[i].copy();
+                copy.inputs[i].parent = copy;
+            }
+            for (var i = 0; i < this.outputs.length; i++) {
+                copy.outputs[i] = this.outputs[i].copy();
+                copy.outputs[i].parent = copy;
+            }
+            return copy;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node) {
+            var objNode = createChildNode(node, this.constructor.getXMLName());
+            createTextElement(objNode, "uid", this.uid);
+            createTextElement(objNode, "name", this.getName());
+            createTextElement(objNode, "x", this.getPos().x);
+            createTextElement(objNode, "y", this.getPos().y);
+            createTextElement(objNode, "angle", this.getAngle());
+            return objNode;
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var uid = getIntValue(getChildNode(node, "uid"));
+            var name = getStringValue(getChildNode(node, "name"));
+            var x = getFloatValue(getChildNode(node, "x"));
+            var y = getFloatValue(getChildNode(node, "y"));
+            var angle = getFloatValue(getChildNode(node, "angle"));
+            var isOn = getBooleanValue(getChildNode(node, "isOn"), false);
+            this.uid = uid;
+            this.setName(name);
+            if (isOn) this.click(isOn);
+            this.setPos(V(x, y));
+            this.setAngle(angle);
+            return this;
         }
     }]);
 
-    return Popup;
+    return IOObject;
 }();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var SRFlipFlop = function (_Gate) {
+    _inherits(SRFlipFlop, _Gate);
+
+    function SRFlipFlop(context, x, y) {
+        _classCallCheck(this, SRFlipFlop);
+
+        var _this = _possibleConstructorReturn(this, (SRFlipFlop.__proto__ || Object.getPrototypeOf(SRFlipFlop)).call(this, context, false, x, y, undefined));
+
+        _this.noChange = true;
+        _this.setInputAmount(3);
+        _this.setOutputAmount(2);
+        _this.transform.setSize(_this.transform.size.scale(1.5));
+        return _this;
+    }
+
+    _createClass(SRFlipFlop, [{
+        key: "onTransformChange",
+        value: function onTransformChange() {
+            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE));
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "onTransformChange", this).call(this);
+            this.transform.setSize(V(DEFAULT_SIZE * 1.5, DEFAULT_SIZE * 1.5));
+        }
+    }, {
+        key: "activate",
+        value: function activate(x) {
+            var on = this.outputs[0].isOn;
+
+            var set = this.inputs[0].isOn;
+            var clock = this.inputs[1].isOn;
+            var reset = this.inputs[2].isOn;
+            if (clock) {
+                if (set && reset) {
+                    // undefined behavior
+                } else if (set) {
+                    on = true;
+                } else if (reset) {
+                    on = false;
+                }
+            }
+
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, on, 0);
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, !on, 1);
+        }
+    }, {
+        key: "draw",
+        value: function draw() {
+            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "draw", this).call(this);
+
+            var renderer = this.context.getRenderer();
+            this.localSpace();
+            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
+            renderer.restore();
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "SR Flip Flop";
+        }
+    }]);
+
+    return SRFlipFlop;
+}(Gate);
+
+SRFlipFlop.getXMLName = function () {
+    return "srff";
+};
+Importer.types.push(SRFlipFlop);
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -6572,85 +5208,6 @@ XORGate.getXMLName = function () {
     return "xorgate";
 };
 Importer.types.push(XORGate);
-"use strict";
-
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
-
-var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
-
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
-
-function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
-
-var SRFlipFlop = function (_Gate) {
-    _inherits(SRFlipFlop, _Gate);
-
-    function SRFlipFlop(context, x, y) {
-        _classCallCheck(this, SRFlipFlop);
-
-        var _this = _possibleConstructorReturn(this, (SRFlipFlop.__proto__ || Object.getPrototypeOf(SRFlipFlop)).call(this, context, false, x, y, undefined));
-
-        _this.noChange = true;
-        _this.setInputAmount(3);
-        _this.setOutputAmount(2);
-        _this.transform.setSize(_this.transform.size.scale(1.5));
-        return _this;
-    }
-
-    _createClass(SRFlipFlop, [{
-        key: "onTransformChange",
-        value: function onTransformChange() {
-            this.transform.setSize(V(DEFAULT_SIZE, DEFAULT_SIZE));
-            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "onTransformChange", this).call(this);
-            this.transform.setSize(V(DEFAULT_SIZE * 1.5, DEFAULT_SIZE * 1.5));
-        }
-    }, {
-        key: "activate",
-        value: function activate(x) {
-            var on = this.outputs[0].isOn;
-
-            var set = this.inputs[0].isOn;
-            var clock = this.inputs[1].isOn;
-            var reset = this.inputs[2].isOn;
-            if (clock) {
-                if (set && reset) {
-                    // undefined behavior
-                } else if (set) {
-                    on = true;
-                } else if (reset) {
-                    on = false;
-                }
-            }
-
-            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, on, 0);
-            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "activate", this).call(this, !on, 1);
-        }
-    }, {
-        key: "draw",
-        value: function draw() {
-            _get(SRFlipFlop.prototype.__proto__ || Object.getPrototypeOf(SRFlipFlop.prototype), "draw", this).call(this);
-
-            var renderer = this.context.getRenderer();
-            this.localSpace();
-            renderer.rect(0, 0, this.transform.size.x, this.transform.size.y, this.getCol(), this.getBorderColor());
-            renderer.restore();
-        }
-    }, {
-        key: "getDisplayName",
-        value: function getDisplayName() {
-            return "SR Flip Flop";
-        }
-    }]);
-
-    return SRFlipFlop;
-}(Gate);
-
-SRFlipFlop.getXMLName = function () {
-    return "srff";
-};
-Importer.types.push(SRFlipFlop);
 "use strict";
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -7990,4 +6547,1445 @@ SevenSegmentDisplay.getXMLName = function () {
     return "sevensegmentdisplay";
 };
 Importer.types.push(SevenSegmentDisplay);
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var IOPort = function () {
+    function IOPort(parent, dir) {
+        _classCallCheck(this, IOPort);
+
+        this.isOn = false;
+        this.parent = parent;
+        this.connections = [];
+
+        this.lineColor = DEFAULT_BORDER_COLOR;
+
+        this.origin = V(0, 0);
+        this.target = dir.scale(IO_PORT_LENGTH);
+        this.dir = dir;
+
+        this.set = false;
+
+        if (parent != undefined) this.updatePosition();
+    }
+
+    _createClass(IOPort, [{
+        key: 'getArray',
+        value: function getArray() {}
+    }, {
+        key: 'getIndex',
+        value: function getIndex() {
+            for (var i = 0; i < this.getArray().length && this.getArray()[i] !== this; i++) {}
+            return i;
+        }
+    }, {
+        key: 'getCol',
+        value: function getCol() {
+            return this.parent.selected || this.selected ? '#1cff3e' : undefined;
+        }
+    }, {
+        key: 'getBorderColor',
+        value: function getBorderColor() {
+            return this.parent.selected || this.selected ? '#0d7f1f' : undefined;
+        }
+    }, {
+        key: 'updatePosition',
+        value: function updatePosition() {
+            var i = this.getIndex();
+
+            var l = -this.parent.transform.size.y / 2 * (i - this.getArray().length / 2 + 0.5);
+            if (i === 0) l -= 1;
+            if (i === this.getArray().length - 1) l += 1;
+
+            this.origin.y = l;
+            this.target.y = l;
+            this.prevParentLength = this.getArray().length;
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (!this.set) this.updatePosition();
+
+            for (var i = 0; i < this.connections.length; i++) {
+                if (this.connections[i] != undefined) this.connections[i].onTransformChange();
+            }
+        }
+    }, {
+        key: 'activate',
+        value: function activate(on) {}
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            var transform = new Transform(this.target, V(IO_PORT_RADIUS, IO_PORT_RADIUS).scale(2), 0, this.parent.context.getCamera());
+            transform.setParent(this.parent.transform);
+            return circleContains(transform, pos);
+        }
+    }, {
+        key: 'sContains',
+        value: function sContains(pos) {
+            var angle = Math.atan2(this.target.y - this.origin.y, this.target.x - this.origin.x);
+            var len = this.origin.distanceTo(this.target);
+            var pos0 = this.target.add(this.origin).scale(0.5);
+            var transform = new Transform(pos0, V(len, IO_PORT_LINE_WIDTH * 2), angle, this.parent.context.getCamera());
+            transform.setParent(this.parent.transform);
+            return rectContains(transform, pos);
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            if (!this.set && this.getArray().length !== this.prevParentLength) this.updatePosition();
+
+            var o = this.origin;
+            var v = this.target;
+            var renderer = this.parent.getRenderer();
+
+            var lineCol = this.parent.getBorderColor() ? this.parent.getBorderColor() : this.lineColor;
+            renderer.line(o.x, o.y, v.x, v.y, lineCol, IO_PORT_LINE_WIDTH);
+
+            var circleFillCol = this.getCol() ? this.getCol() : DEFAULT_FILL_COLOR;
+            var circleBorderCol = this.getBorderColor() ? this.getBorderColor() : DEFAULT_BORDER_COLOR;
+            renderer.circle(v.x, v.y, IO_PORT_RADIUS, circleFillCol, circleBorderCol, IO_PORT_BORDER_WIDTH);
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {}
+    }, {
+        key: 'setOrigin',
+        value: function setOrigin(v) {
+            this.origin.x = v.x;
+            this.origin.y = v.y;
+            this.set = true;
+            if (this.parent != undefined) this.parent.onTransformChange();
+        }
+    }, {
+        key: 'setTarget',
+        value: function setTarget(v) {
+            this.target.x = v.x;
+            this.target.y = v.y;
+            this.set = true;
+            if (this.parent != undefined) this.parent.onTransformChange();
+        }
+    }, {
+        key: 'getPos',
+        value: function getPos() {
+            return this.parent.transform.getMatrix().mul(this.target);
+        }
+    }, {
+        key: 'getOPos',
+        value: function getOPos() {
+            return this.parent.transform.getMatrix().mul(this.origin);
+        }
+    }, {
+        key: 'getDir',
+        value: function getDir() {
+            return this.parent.transform.getMatrix().mul(this.dir).sub(this.parent.getPos()).normalize();
+        }
+    }, {
+        key: 'setName',
+        value: function setName(n) {}
+    }, {
+        key: 'setPos',
+        value: function setPos() {}
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "ioport";
+        }
+    }, {
+        key: 'getXMLName',
+        value: function getXMLName() {
+            return this.getDisplayName().toLowerCase().replace(/\s+/g, '');
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var port = new this.constructor();
+            port.origin = this.origin.copy();
+            port.target = this.target.copy();
+            port.set = this.set;
+            port.lineColor = this.lineColor;
+            return port;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node) {
+            var ioPortNode = createChildNode(node, this.getXMLName());
+            createTextElement(ioPortNode, "originx", this.origin.x);
+            createTextElement(ioPortNode, "originy", this.origin.y);
+            createTextElement(ioPortNode, "targetx", this.target.x);
+            createTextElement(ioPortNode, "targety", this.target.y);
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var originx = getFloatValue(getChildNode(node, "originx"));
+            var originy = getFloatValue(getChildNode(node, "originy"));
+            var targetx = getFloatValue(getChildNode(node, "targetx"));
+            var targety = getFloatValue(getChildNode(node, "targety"));
+            this.setOrigin(V(originx, originy));
+            this.setTarget(V(targetx, targety));
+            return this;
+        }
+    }, {
+        key: 'uid',
+        get: function get() {
+            return this.parent.uid;
+        }
+    }]);
+
+    return IOPort;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var IPort = function (_IOPort) {
+    _inherits(IPort, _IOPort);
+
+    function IPort(parent) {
+        _classCallCheck(this, IPort);
+
+        return _possibleConstructorReturn(this, (IPort.__proto__ || Object.getPrototypeOf(IPort)).call(this, parent, V(-1, 0)));
+    }
+
+    _createClass(IPort, [{
+        key: "getArray",
+        value: function getArray() {
+            return this.parent.inputs;
+        }
+    }, {
+        key: "activate",
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            this.parent.context.propogate(this, this.parent, this.isOn);
+        }
+    }, {
+        key: "remove",
+        value: function remove() {
+            if (this.input != undefined) this.input.disconnect(this);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "iport";
+        }
+    }, {
+        key: "input",
+        set: function set(obj) {
+            if (obj == undefined) this.connections = [];else this.connections[0] = obj;
+        },
+        get: function get() {
+            if (this.connections.length > 0) return this.connections[0];else return undefined;
+        }
+    }]);
+
+    return IPort;
+}(IOPort);
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var OPort = function (_IOPort) {
+    _inherits(OPort, _IOPort);
+
+    function OPort(parent) {
+        _classCallCheck(this, OPort);
+
+        return _possibleConstructorReturn(this, (OPort.__proto__ || Object.getPrototypeOf(OPort)).call(this, parent, V(1, 0)));
+    }
+
+    _createClass(OPort, [{
+        key: "getArray",
+        value: function getArray() {
+            return this.parent.outputs;
+        }
+    }, {
+        key: "activate",
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            for (var i = 0; i < this.connections.length; i++) {
+                this.parent.context.propogate(this, this.connections[i], this.isOn);
+            }
+        }
+    }, {
+        key: "remove",
+        value: function remove() {
+            for (var i = 0; i < this.connections.length; i++) {
+                this.disconnect(this.connections[i]);
+            }
+        }
+    }, {
+        key: "connect",
+        value: function connect(wire) {
+            this.connections.push(wire);
+            wire.input = this;
+            wire.onTransformChange();
+            wire.activate(this.isOn);
+            return true;
+        }
+    }, {
+        key: "disconnect",
+        value: function disconnect(obj) {
+            for (var i = 0; i < this.connections.length && this.connections[i] !== obj; i++) {}
+            this.connections[i].input = undefined;
+            this.connections.splice(i, 1);
+        }
+    }, {
+        key: "getDisplayName",
+        value: function getDisplayName() {
+            return "oport";
+        }
+    }]);
+
+    return OPort;
+}(IOPort);
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Wire = function () {
+    function Wire(context) {
+        _classCallCheck(this, Wire);
+
+        this.context = context;
+
+        this.input = undefined;
+        this.connection = undefined;
+
+        this.curve = new BezierCurve(V(0, 0), V(0, 0), V(0, 0), V(0, 0));
+        this.isOn = false;
+        this.set = false; // Manually set bezier control points
+
+        this.straight = false;
+        this.dirty = true;
+        this.boundingBox = new Transform(0, 0, 0, context.getCamera());
+    }
+
+    _createClass(Wire, [{
+        key: 'activate',
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            if (this.connection != undefined) this.connection.activate(on);
+        }
+    }, {
+        key: 'split',
+        value: function split(t) {
+            var pos = this.curve.getPos(t);
+
+            var wire = new Wire(this.context);
+
+            var prevConnection = this.connection;
+            this.disconnect();
+
+            var port = new WirePort(this.context);
+            this.connect(port);
+            wire.connect(prevConnection);
+            port.connect(wire);
+
+            this.connection.setPos(pos);
+
+            getCurrentContext().addObject(port);
+            getCurrentContext().addWire(wire);
+        }
+    }, {
+        key: 'updateBoundingBox',
+        value: function updateBoundingBox() {
+            if (!this.dirty) return;
+            this.dirty = false;
+
+            var end1 = this.getPos(0);
+            var end2 = this.getPos(1);
+            var min = V(Math.min(end1.x, end2.x), Math.min(end1.y, end2.y));
+            var max = V(Math.max(end1.x, end2.x), Math.max(end1.y, end2.y));
+            this.boundingBox.setSize(V(max.x - min.x + 2, max.y - min.y + 2));
+            this.boundingBox.setPos(V((max.x - min.x) / 2 + min.x, (max.y - min.y) / 2 + min.y));
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.input != undefined) {
+                var pos = this.input.getPos();
+                if (this.set) {
+                    this.curve.c1.x += pos.x - this.curve.p1.x;
+                    this.curve.c1.y += pos.y - this.curve.p1.y;
+                } else {
+                    var dir = this.input instanceof WirePort ? this.input.getODir() : this.input.getDir();
+                    var c = dir.scale(DEFAULT_SIZE).add(pos);
+                    this.curve.c1.x = c.x;
+                    this.curve.c1.y = c.y;
+                }
+                this.curve.p1.x = pos.x;
+                this.curve.p1.y = pos.y;
+                this.curve.dirty = true;
+                this.dirty = true;
+            }
+            if (this.connection != undefined) {
+                var pos = this.connection.getPos();
+                if (this.set) {
+                    this.curve.c2.x += pos.x - this.curve.p2.x;
+                    this.curve.c2.y += pos.y - this.curve.p2.y;
+                } else {
+                    var dir = this.connection.getDir();
+                    var c = dir.scale(DEFAULT_SIZE).add(pos);
+                    this.curve.c2.x = c.x;
+                    this.curve.c2.y = c.y;
+                }
+                this.curve.p2.x = pos.x;
+                this.curve.p2.y = pos.y;
+                this.curve.dirty = true;
+                this.dirty = true;
+            }
+        }
+    }, {
+        key: 'connect',
+        value: function connect(obj) {
+            if (this.connection != undefined || obj.input != undefined) return false;
+
+            this.connection = obj;
+            obj.input = this;
+            this.onTransformChange();
+            obj.activate(this.isOn);
+
+            return true;
+        }
+    }, {
+        key: 'disconnect',
+        value: function disconnect() {
+            if (this.connection == undefined) return false;
+
+            this.connection.input = undefined;
+            this.connection.activate(false);
+            this.connection = undefined;
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+            var camera = this.context.getCamera();
+
+            var color = this.isOn ? '#3cacf2' : this.selected ? '#1cff3e' : DEFAULT_FILL_COLOR;
+            if (this.straight) {
+                var p1 = camera.getScreenPos(this.curve.p1);
+                var p2 = camera.getScreenPos(this.curve.p2);
+                renderer.line(p1.x, p1.y, p2.x, p2.y, color, 7 / camera.zoom);
+            } else {
+                this.curve.draw(color, 7 / camera.zoom, renderer);
+            }
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            if (this.input != undefined) this.input.disconnect(this);
+            if (this.connection != undefined) this.disconnect(this.connection);
+        }
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            return this.curve.getNearestT(pos.x, pos.y) !== -1;
+        }
+    }, {
+        key: 'setName',
+        value: function setName(n) {}
+    }, {
+        key: 'setPos',
+        value: function setPos() {}
+    }, {
+        key: 'getPos',
+        value: function getPos(t) {
+            if (t == undefined) t = 0.5;
+            return this.curve.getPos(t);
+        }
+    }, {
+        key: 'getNearestT',
+        value: function (_getNearestT) {
+            function getNearestT(_x, _x2) {
+                return _getNearestT.apply(this, arguments);
+            }
+
+            getNearestT.toString = function () {
+                return _getNearestT.toString();
+            };
+
+            return getNearestT;
+        }(function (mx, my) {
+            return this.straight ? getNearestT(this.curve.p1, this.curve.p2, mx, my) : this.curve.getNearestT(mx, my);
+        })
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.straight ? this.getBoundingBox() : this.curve.getBoundingBox();
+        }
+    }, {
+        key: 'getBoundingBox',
+        value: function getBoundingBox() {
+            if (!this.straight) return undefined;
+
+            this.updateBoundingBox();
+            return this.boundingBox;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getMaxInputFieldCount',
+        value: function getMaxInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getMinInputFieldCount',
+        value: function getMinInputFieldCount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "Wire";
+        }
+    }, {
+        key: 'copy',
+        value: function copy() {
+            var copy = new Wire(this.context);
+            copy.curve = this.curve.copy();
+            copy.straight = this.straight;
+            return copy;
+        }
+    }, {
+        key: 'writeTo',
+        value: function writeTo(node, objects, wires) {
+            var wireNode = createChildNode(node, "wire");
+
+            createTextElement(wireNode, "uid", this.uid);
+
+            var inputNode = createChildNode(wireNode, "input");
+            createTextElement(inputNode, "uid", this.input.uid);
+            createTextElement(inputNode, "index", this.input.getIndex());
+
+            var connectionNode = createChildNode(wireNode, "connection");
+            createTextElement(connectionNode, "uid", this.connection.uid);
+            createTextElement(connectionNode, "index", this.connection.getIndex());
+
+            this.curve.writeTo(wireNode);
+
+            createTextElement(wireNode, "straight", this.straight);
+        }
+    }, {
+        key: 'load',
+        value: function load(node) {
+            var objects = this.context.getObjects();
+            var wires = this.context.getWires();
+
+            var uid = getIntValue(getChildNode(node, "uid"));
+            this.uid = uid;
+
+            var bezier = getChildNode(node, "bezier");
+            this.curve.load(bezier);
+
+            var straight = getBooleanValue(getChildNode(node, "straight"));
+            this.straight = straight;
+
+            return this;
+        }
+    }, {
+        key: 'loadConnections',
+        value: function loadConnections(node, objects) {
+            var inputNode = getChildNode(node, "input");
+            var sourceUID = getIntValue(getChildNode(inputNode, "uid"));
+            var sourceIndx = getIntValue(getChildNode(inputNode, "index"));
+            var source = findByUID(objects, sourceUID);
+            source = source instanceof WirePort ? source : source.outputs[sourceIndx];
+
+            var connectionNode = getChildNode(node, "connection");
+            var targetUID = getIntValue(getChildNode(connectionNode, "uid"));
+            var targetIndx = getIntValue(getChildNode(connectionNode, "index"));
+            var target = findByUID(objects, targetUID);
+            console.log(targetUID);
+            console.log(targetIndx);
+            console.log(target);
+            target = target instanceof WirePort ? target : target.inputs[targetIndx];
+
+            source.connect(this);
+            this.connect(target);
+        }
+    }]);
+
+    return Wire;
+}();
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+var _get = function get(object, property, receiver) { if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { return get(parent, property, receiver); } } else if ("value" in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } };
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _possibleConstructorReturn(self, call) { if (!self) { throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); } return call && (typeof call === "object" || typeof call === "function") ? call : self; }
+
+function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
+
+var WirePort = function (_IOObject) {
+    _inherits(WirePort, _IOObject);
+
+    function WirePort(context) {
+        _classCallCheck(this, WirePort);
+
+        var _this = _possibleConstructorReturn(this, (WirePort.__proto__ || Object.getPrototypeOf(WirePort)).call(this, context, 0, 0, 2 * IO_PORT_RADIUS, 2 * IO_PORT_RADIUS));
+
+        _this._input = undefined;
+        _this.connection = undefined;
+        _this.isOn = false;
+        _this.selected = false;
+        _this.hasSetTransform = false;
+        return _this;
+    }
+
+    _createClass(WirePort, [{
+        key: 'activate',
+        value: function activate(on) {
+            if (this.isOn === on) return;
+
+            this.isOn = on;
+            if (this.connection != undefined) this.connection.activate(on);
+        }
+    }, {
+        key: 'remove',
+        value: function remove() {
+            this.context.remove(this);
+            if (this.input != undefined) this.input.disconnect(this);
+            if (this.connection != undefined) this.disconnect(this.connection);
+        }
+    }, {
+        key: 'setTransform',
+        value: function setTransform(t) {
+            this.transform = t;
+            this.setPos(t.pos);
+        }
+    }, {
+        key: 'onTransformChange',
+        value: function onTransformChange() {
+            if (this.input != undefined) this.input.onTransformChange();
+            if (this.connection != undefined) this.connection.onTransformChange();
+        }
+    }, {
+        key: 'connect',
+        value: function connect(wire) {
+            if (this.connection != undefined) return false;
+
+            this.connection = wire;
+            wire.input = this;
+            wire.onTransformChange();
+            wire.activate(this.isOn);
+
+            return true;
+        }
+    }, {
+        key: 'disconnect',
+        value: function disconnect() {
+            if (this.connection == undefined) return;
+
+            this.connection.input = undefined;
+            this.connection = undefined;
+        }
+    }, {
+        key: 'draw',
+        value: function draw() {
+            var renderer = this.context.getRenderer();
+            var camera = this.context.getCamera();
+
+            var v = camera.getScreenPos(this.getPos());
+            renderer.circle(v.x, v.y, 7 / camera.zoom, this.selected ? '#1cff3e' : '#ffffff', this.selected ? '#0d7f1f' : '#000000', 1 / camera.zoom);
+        }
+    }, {
+        key: 'contains',
+        value: function contains(pos) {
+            return circleContains(this.transform, pos);
+        }
+    }, {
+        key: 'sContains',
+        value: function sContains(pos) {
+            return this.contains(pos);
+        }
+    }, {
+        key: 'setPos',
+        value: function setPos(v) {
+            if (this.input != undefined && this.connection != undefined) {
+                // Snap to end points of wires
+                this.input.straight = false;
+                this.connection.straight = false;
+                v.x = snap(this.input, v.x, this.input.curve.p1.x);
+                v.y = snap(this.input, v.y, this.input.curve.p1.y);
+                v.x = snap(this.connection, v.x, this.connection.curve.p2.x);
+                v.y = snap(this.connection, v.y, this.connection.curve.p2.y);
+            }
+
+            _get(WirePort.prototype.__proto__ || Object.getPrototypeOf(WirePort.prototype), 'setPos', this).call(this, v);
+        }
+    }, {
+        key: 'getIndex',
+        value: function getIndex() {
+            return 0;
+        }
+    }, {
+        key: 'getDir',
+        value: function getDir() {
+            return this.transform.getMatrix().mul(V(-1, 0)).sub(this.transform.pos).normalize();
+        }
+    }, {
+        key: 'getODir',
+        value: function getODir() {
+            return this.transform.getMatrix().mul(V(1, 0)).sub(this.transform.pos).normalize();
+        }
+    }, {
+        key: 'getCullBox',
+        value: function getCullBox() {
+            return this.transform;
+        }
+    }, {
+        key: 'getInputAmount',
+        value: function getInputAmount() {
+            return 1;
+        }
+    }, {
+        key: 'getName',
+        value: function getName() {
+            return this.getDisplayName();
+        }
+    }, {
+        key: 'getDisplayName',
+        value: function getDisplayName() {
+            return "Port";
+        }
+    }, {
+        key: 'input',
+        set: function set(input) {
+            this._input = input;
+            if (!this.hasSetTransform) {
+                this.hasSetTransform = true;
+                this.transform = new Transform(input.curve.p2.copy(), V(15, 15), 0, this.context.getCamera());
+            }
+        },
+        get: function get() {
+            return this._input;
+        }
+    }]);
+
+    return WirePort;
+}(IOObject);
+
+WirePort.getXMLName = function () {
+    return "port";
+};
+Importer.types.push(WirePort);
+
+function snap(wire, x, c) {
+    if (Math.abs(x - c) <= WIRE_SNAP_THRESHOLD) {
+        wire.straight = true;
+        return c;
+    }
+    return x;
+}
+'use strict';
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var CircuitDesigner = function () {
+    function CircuitDesigner(canvas, vw, vh) {
+        var _this = this;
+
+        _classCallCheck(this, CircuitDesigner);
+
+        this.renderer = new Renderer(this, canvas, vw, vh);
+        this.camera = new Camera(this);
+        this.history = new HistoryManager();
+
+        this.wires = [];
+        this.objects = [];
+
+        this.propogationQueue = [];
+
+        window.addEventListener('resize', function (e) {
+            return _this.resize();
+        }, false);
+
+        this.resize();
+    }
+
+    _createClass(CircuitDesigner, [{
+        key: 'reset',
+        value: function reset() {
+            for (var i = 0; i < this.objects.length; i++) {
+                this.objects[i].remove();
+            }for (var i = 0; i < this.wires.length; i++) {
+                this.wires[i].remove();
+            }this.objects = [];
+            this.wires = [];
+            this.propogationQueue = [];
+        }
+    }, {
+        key: 'propogate',
+        value: function propogate(sender, receiver, signal) {
+            var _this2 = this;
+
+            this.propogationQueue.push(new Propogation(sender, receiver, signal, function () {
+                return _this2.update(sender, receiver);
+            })); //() => this.update()));
+        }
+    }, {
+        key: 'update',
+        value: function update(sender, receiver) {
+            var _this3 = this;
+
+            var tempQueue = [];
+            while (this.propogationQueue.length > 0) {
+                tempQueue.push(this.propogationQueue.pop());
+            }while (tempQueue.length > 0) {
+                tempQueue.pop().send();
+            }if (this.propogationQueue.length > 0) updateRequests++;
+
+            updateRequests--;
+
+            console.log("update");
+
+            // See if the sender/receiver is a wire in the scene (not in an IC) to render
+            var inScene = false;
+            if (sender instanceof Wire || receiver instanceof Wire) {
+                for (var i = 0; i < this.wires.length; i++) {
+                    if (this.wires[i] === sender || this.wires[i] === receiver) {
+                        inScene = true;
+                        break;
+                    }
+                }
+            } else {
+                render();
+            }
+
+            if (inScene) render();
+
+            if (updateRequests > 0) {
+                setTimeout(function () {
+                    return _this3.update(sender, receiver);
+                }, PROPOGATION_TIME);
+            }
+        }
+    }, {
+        key: 'render',
+        value: function render() {
+            // console.log("RENDER");
+
+            this.renderer.clear();
+
+            var step = GRID_SIZE / this.camera.zoom;
+
+            var cpos = V(this.camera.pos.x / this.camera.zoom - this.renderer.canvas.width / 2, this.camera.pos.y / this.camera.zoom - this.renderer.canvas.height / 2);
+
+            var cpx = cpos.x - Math.floor(cpos.x / step) * step;
+            if (cpx < 0) cpx += step;
+            var cpy = cpos.y - Math.floor(cpos.y / step) * step;
+            if (cpy < 0) cpy += step;
+
+            // Batch-render the lines = uglier code + way better performance
+            this.renderer.save();
+            this.renderer.setStyles(undefined, '#999', 1 / this.camera.zoom);
+            this.renderer.context.beginPath();
+            for (var x = -cpx; x <= this.renderer.canvas.width - cpx + step; x += step) {
+                this.renderer._line(x, 0, x, this.renderer.canvas.height);
+            }
+            for (var y = -cpy; y <= this.renderer.canvas.height - cpy + step; y += step) {
+                this.renderer._line(0, y, this.renderer.canvas.width, y);
+            }
+            this.renderer.context.closePath();
+            this.renderer.context.stroke();
+            this.renderer.restore();
+
+            // Cull objects/wires if they aren't on the screen
+            for (var i = 0; i < this.wires.length; i++) {
+                if (this.camera.cull(this.wires[i].getCullBox())) this.wires[i].draw();
+            }
+            for (var i = 0; i < this.objects.length; i++) {
+                if (this.camera.cull(this.objects[i].getCullBox())) this.objects[i].draw();
+            }
+
+            CurrentTool.draw(this.renderer);
+        }
+    }, {
+        key: 'resize',
+        value: function resize() {
+            this.renderer.resize();
+            this.camera.resize();
+
+            render();
+        }
+    }, {
+        key: 'addObject',
+        value: function addObject(o) {
+            if (this.getIndexOfObject(o) === -1) this.objects.push(o);else console.error("Attempted to add an object that already existed!");
+        }
+    }, {
+        key: 'addWire',
+        value: function addWire(w) {
+            if (this.getIndexOfWire(w) === -1) this.wires.push(w);else console.error("Attempted to add a wire that already existed!");
+        }
+    }, {
+        key: 'getRenderer',
+        value: function getRenderer() {
+            return this.renderer;
+        }
+    }, {
+        key: 'getObjects',
+        value: function getObjects() {
+            return this.objects;
+        }
+    }, {
+        key: 'getWires',
+        value: function getWires() {
+            return this.wires;
+        }
+    }, {
+        key: 'getIndexOfObject',
+        value: function getIndexOfObject(obj) {
+            for (var i = 0; i < this.objects.length; i++) {
+                if (obj === this.objects[i]) return i;
+            }
+            return -1;
+        }
+    }, {
+        key: 'getIndexOfWire',
+        value: function getIndexOfWire(wire) {
+            for (var i = 0; i < this.wires.length; i++) {
+                if (wire === this.wires[i]) return i;
+            }
+            return -1;
+        }
+    }]);
+
+    return CircuitDesigner;
+}();
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var ICDesigner = function () {
+    function ICDesigner() {
+        _classCallCheck(this, ICDesigner);
+
+        this.canvas = document.getElementById("designer-canvas");
+
+        this.designer = new CircuitDesigner(this.canvas, 0.84, 0.76);
+        this.context = new Context(this.designer);
+
+        this.ic = undefined;
+        this.data = undefined;
+
+        this.drag = false;
+        this.dragObj = undefined;
+
+        this.dragEdge = undefined;
+
+        this.disabled = true;
+
+        this.confirmButton = document.getElementById("ic-confirmbutton");
+        this.cancelButton = document.getElementById("ic-cancelbutton");
+
+        this.hide();
+    }
+
+    _createClass(ICDesigner, [{
+        key: "confirm",
+        value: function confirm() {
+            if (this.ic != undefined) {
+                ICData.add(this.data);
+                var out = this.ic.copy();
+                out.setContext(context);
+                context.getDesigner().addObject(out);
+                this.hide();
+            }
+        }
+    }, {
+        key: "cancel",
+        value: function cancel() {
+            if (this.ic != undefined) {
+                this.hide();
+            }
+        }
+    }, {
+        key: "show",
+        value: function show(selections) {
+            currentContext = this.context;
+            this.disabled = false;
+            TransformController.disabled = true;
+            WireController.disabled = true;
+            SelectionBox.disabled = true;
+
+            this.hidden = false;
+            this.canvas.style.visibility = "visible";
+            this.confirmButton.style.visibility = "visible";
+            this.cancelButton.style.visibility = "visible";
+            if (ItemNavController.isOpen) ItemNavController.toggle();
+            popup.hide();
+
+            this.data = ICData.create(selections);
+            this.ic = new IC(this.context, this.data, 0, 0);
+
+            this.designer.addObject(this.ic);
+            selectionTool.deselectAll();
+            this.context.getCamera().zoom = 0.5 + 0.1 * (this.ic.transform.size.x - 50) / 20;
+            render();
+        }
+    }, {
+        key: "hide",
+        value: function hide() {
+            currentContext = context;
+            this.disabled = true;
+            TransformController.disabled = false;
+            WireController.disabled = false;
+            SelectionBox.disabled = false;
+
+            this.hidden = true;
+            this.canvas.style.visibility = "hidden";
+            this.confirmButton.style.visibility = "hidden";
+            this.cancelButton.style.visibility = "hidden";
+            if (this.ic != undefined) {
+                this.ic.remove();
+                this.ic = undefined;
+                this.data = undefined;
+            }
+            render();
+        }
+    }, {
+        key: "onMouseDown",
+        value: function onMouseDown() {
+            if (this.ic == undefined) return false;
+
+            var worldMousePos = Input.getWorldMousePos();
+
+            var inputs = this.ic.inputs;
+            for (var i = 0; i < inputs.length; i++) {
+                var inp = inputs[i];
+                if (inp.sContains(worldMousePos)) {
+                    this.drag = true;
+                    this.dragObj = this.data.iports[i];
+                    return true;
+                }
+            }
+            var outputs = this.ic.outputs;
+            for (var i = 0; i < outputs.length; i++) {
+                var out = outputs[i];
+                if (out.sContains(worldMousePos)) {
+                    this.drag = true;
+                    this.dragObj = this.data.oports[i];
+                    return true;
+                }
+            }
+
+            var pos = this.ic.getPos();
+            var size = this.ic.getSize();
+            var transform1 = new Transform(pos, size.scale(1.2), 0, this.context.getCamera());
+            var transform2 = new Transform(pos, size.scale(0.8), 0, this.context.getCamera());
+            if (rectContains(transform1, worldMousePos) && !rectContains(transform2, worldMousePos)) {
+                if (worldMousePos.y < pos.y + size.y / 2 - 4 && worldMousePos.y > pos.y - size.y / 2 + 4) {
+                    this.dragEdge = "horizontal";
+                } else {
+                    this.dragEdge = "vertical";
+                }
+                return true;
+            }
+        }
+    }, {
+        key: "onMouseUp",
+        value: function onMouseUp() {
+            if (this.ic == undefined) return false;
+
+            this.drag = false;
+            this.dragObj = undefined;
+            this.dragEdge = undefined;
+        }
+    }, {
+        key: "onMouseMove",
+        value: function onMouseMove() {
+            if (this.ic == undefined) return false;
+
+            var worldMousePos = Input.getWorldMousePos();
+
+            if (this.drag) {
+                var size = this.ic.getSize();
+                var p = getNearestPointOnRect(V(-size.x / 2, -size.y / 2), V(size.x / 2, size.y / 2), worldMousePos);
+                var v1 = p.sub(worldMousePos).normalize().scale(size.scale(0.5)).add(p);
+                var v2 = p.sub(worldMousePos).normalize().scale(size.scale(0.5).sub(V(IO_PORT_LENGTH + size.x / 2 - 25, IO_PORT_LENGTH + size.y / 2 - 25))).add(p);
+                this.dragObj.setOrigin(v1);
+                this.dragObj.setTarget(v2);
+
+                this.ic.update();
+
+                return true;
+            }
+            if (this.dragEdge != undefined) {
+                if (this.dragEdge === "horizontal") {
+                    this.data.transform.setWidth(Math.abs(2 * worldMousePos.x));
+                } else {
+                    this.data.transform.setHeight(Math.abs(2 * worldMousePos.y));
+                }
+                this.data.recalculatePorts();
+
+                this.ic.update();
+
+                return true;
+            }
+        }
+    }, {
+        key: "onClick",
+        value: function onClick() {}
+    }]);
+
+    return ICDesigner;
+}();
+"use strict";
+
+var images = [];
+
+var popup;
+var contextmenu;
+var icdesigner;
+
+var context;
+
+var currentContext;
+
+var browser = getBrowser();
+
+var saved = true;
+
+// Prompt for exit
+window.onbeforeunload = function (e) {
+    if (!saved) {
+        var dialogText = "You have unsaved changes.";
+        e.returnValue = dialogText;
+        return dialogText;
+    }
+};
+
+function start() {
+    var designer = new CircuitDesigner(document.getElementById("canvas"));
+    context = new Context(designer);
+    currentContext = context;
+
+    popup = new SelectionPopup();
+    icdesigner = new ICDesigner();
+    contextmenu = new ContextMenu();
+
+    Input.registerContext(context);
+    Input.registerContext(icdesigner.context);
+    Input.addMouseListener(icdesigner);
+    Input.addMouseListener(TransformController);
+    Input.addMouseListener(WireController);
+    Input.addMouseListener(SelectionBox);
+
+    selectionTool.activate();
+
+    loadImage(images, ["constLow.svg", "constHigh.svg", "buttonUp.svg", "buttonDown.svg", "switchUp.svg", "switchDown.svg", "led.svg", "ledLight.svg", "buffer.svg", "and.svg", "or.svg", "xor.svg", "segment1.svg", "segment2.svg", "segment3.svg", "segment4.svg", "clock.svg", "clockOn.svg", "keyboard.svg", "base.svg"], 0, onFinishLoading);
+}
+
+function wire(source, target) {
+    var wire = new Wire(getCurrentContext(), source);
+    source.connect(wire);
+    wire.connect(target);
+}
+
+function reset() {
+    ICData.ICs = [];
+    currentContext = context;
+    context.reset();
+}
+
+function onFinishLoading() {
+    render();
+}
+
+var renderQueue = 0;
+
+function render() {
+    if (renderQueue === 0) requestAnimationFrame(actualRender);
+    renderQueue++;
+}
+
+function actualRender() {
+    // console.log("Saved : " + (renderQueue - 1) + " render calls!");
+    renderQueue = 0;
+    getCurrentContext().render();
+}
+
+function loadImage(imgs, imageNames, index, onFinish) {
+    var img = new Image();
+    img.onload = function () {
+        imgs[imageNames[index]] = img;
+        img.dx = 0;
+        img.dy = 0;
+        img.ratio = img.width / img.height;
+        if (index === imageNames.length - 1) onFinish(imgs);else loadImage(imgs, imageNames, index + 1, onFinish);
+    };
+    img.src = "img/items/" + imageNames[index];
+}
+"use strict";
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+var Renderer = function () {
+    function Renderer(parent, canvas, vw, vh) {
+        _classCallCheck(this, Renderer);
+
+        this.parent = parent;
+        this.canvas = canvas;
+        this.tintCanvas = document.createElement("canvas");
+        this.vw = vw == undefined ? 1 : vw;
+        this.vh = vh == undefined ? 1 : vh;
+
+        this.context = this.canvas.getContext("2d");
+
+        this.tintCanvas.width = 100;
+        this.tintCanvas.height = 100;
+        this.tintContext = this.tintCanvas.getContext("2d");
+    }
+
+    _createClass(Renderer, [{
+        key: "getCamera",
+        value: function getCamera() {
+            return this.parent.camera;
+        }
+    }, {
+        key: "setCursor",
+        value: function setCursor(cursor) {
+            this.canvas.style.cursor = cursor;
+        }
+    }, {
+        key: "resize",
+        value: function resize() {
+            this.canvas.width = window.innerWidth * this.vw;
+            this.canvas.height = window.innerHeight * this.vh;
+        }
+    }, {
+        key: "clear",
+        value: function clear() {
+            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+    }, {
+        key: "save",
+        value: function save() {
+            this.context.save();
+        }
+    }, {
+        key: "restore",
+        value: function restore() {
+            this.context.restore();
+        }
+    }, {
+        key: "translate",
+        value: function translate(v) {
+            this.context.translate(v.x, v.y);
+        }
+    }, {
+        key: "scale",
+        value: function scale(s) {
+            this.context.scale(s.x, s.y);
+        }
+    }, {
+        key: "rotate",
+        value: function rotate(a) {
+            this.context.rotate(a);
+        }
+    }, {
+        key: "rect",
+        value: function rect(x, y, w, h, fillStyle, borderStyle, borderSize, alpha) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
+            this.context.beginPath();
+            this.context.rect(x - w / 2, y - h / 2, w, h);
+            this.context.fill();
+            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "circle",
+        value: function circle(x, y, r, fillStyle, borderStyle, borderSize, alpha) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize, alpha);
+            this.context.beginPath();
+            this.context.arc(x, y, r, 0, 2 * Math.PI);
+            if (fillStyle != undefined) this.context.fill();
+            if (borderSize > 0 || borderSize == undefined) this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "image",
+        value: function image(img, x, y, w, h, tint) {
+            this.context.drawImage(img, x - w / 2, y - h / 2, w, h);
+            if (tint != undefined) this.tintImage(img, x, y, w, h, tint);
+        }
+    }, {
+        key: "tintImage",
+        value: function tintImage(img, x, y, w, h, tint) {
+            this.tintContext.clearRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
+            this.tintContext.fillStyle = tint;
+            this.tintContext.fillRect(0, 0, this.tintCanvas.width, this.tintCanvas.height);
+            if (browser.name !== "Firefox") this.tintContext.globalCompositeOperation = "destination-atop";else this.tintContext.globalCompositeOperation = "source-atop";
+            this.tintContext.drawImage(img, 0, 0, this.tintCanvas.width, this.tintCanvas.height);
+
+            this.context.globalAlpha = 0.5;
+            this.context.drawImage(this.tintCanvas, x - w / 2, y - h / 2, w, h);
+            this.context.globalAlpha = 1.0;
+        }
+    }, {
+        key: "text",
+        value: function text(txt, x, y, w, h, textAlign) {
+            this.save();
+            this.context.font = "lighter 15px arial";
+            this.context.fillStyle = '#000';
+            this.context.textAlign = textAlign;
+            this.context.textBaseline = "middle";
+            this.context.fillText(txt, x, y);
+            this.restore();
+        }
+    }, {
+        key: "getTextWidth",
+        value: function getTextWidth(txt) {
+            var width = 0;
+            this.save();
+            this.context.font = "lighter 15px arial";
+            this.context.fillStyle = '#000';
+            this.context.textBaseline = "middle";
+            width = this.context.measureText(txt).width;
+            this.restore();
+            return width;
+        }
+    }, {
+        key: "line",
+        value: function line(x1, y1, x2, y2, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.lineTo(x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "_line",
+        value: function _line(x1, y1, x2, y2) {
+            this.context.moveTo(x1, y1);
+            this.context.lineTo(x2, y2);
+        }
+    }, {
+        key: "curve",
+        value: function curve(x1, y1, x2, y2, cx1, cy1, cx2, cy2, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.bezierCurveTo(cx1, cy1, cx2, cy2, x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "quadCurve",
+        value: function quadCurve(x1, y1, x2, y2, cx, cy, style, size) {
+            this.save();
+            this.setStyles(undefined, style, size);
+            this.context.beginPath();
+            this.context.moveTo(x1, y1);
+            this.context.quadraticCurveTo(cx, cy, x2, y2);
+            this.context.stroke();
+            this.context.closePath();
+            this.restore();
+        }
+    }, {
+        key: "shape",
+        value: function shape(points, fillStyle, borderStyle, borderSize) {
+            this.save();
+            this.setStyles(fillStyle, borderStyle, borderSize);
+            this.context.beginPath();
+            this.context.moveTo(points[0].x, points[0].y);
+            for (var i = 1; i < points.length; i++) {
+                this.context.lineTo(points[i].x, points[i].y);
+            }this.context.lineTo(points[0].x, points[0].y);
+            this.context.fill();
+            this.context.closePath();
+            if (borderSize > 0) this.context.stroke();
+            this.restore();
+        }
+    }, {
+        key: "setStyles",
+        value: function setStyles(fillStyle, borderStyle, borderSize, alpha) {
+            if (alpha != undefined && alpha !== this.context.globalAlpha) this.context.globalAlpha = alpha;
+
+            fillStyle = fillStyle == undefined ? '#ffffff' : fillStyle;
+            if (fillStyle != undefined && fillStyle !== this.context.fillStyle) this.context.fillStyle = fillStyle;
+
+            borderStyle = borderStyle == undefined ? '#000000' : borderStyle;
+            if (borderStyle != undefined && borderStyle !== this.context.strokeStyle) this.context.strokeStyle = borderStyle;
+
+            borderSize = borderSize == undefined ? 2 : borderSize;
+            if (borderSize != undefined && borderSize !== this.context.lineWidth) this.context.lineWidth = borderSize;
+        }
+    }]);
+
+    return Renderer;
+}();
 //# sourceMappingURL=combined-min.js.map
