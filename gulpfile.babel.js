@@ -52,7 +52,7 @@ var buildScripts = function(){
 }
 
 gulp.task('scripts', function() {
-    return buildScripts;
+    return buildScripts();
 })
 
 gulp.task('default', function() {
