@@ -1,6 +1,6 @@
 <img src="https://github.com/LeonMontealegre/OpenCircuits/blob/master/site/public/img/icons/logo.svg" alt="OpenCircuits Logo" style="width: 500px;"/>
 
-[![Build Status](https://travis-ci.org/LeonMontealegre/OpenCircuits.svg?branch=master)](https://travis-ci.org/LeonMontealegre/OpenCircuits)
+[![Build Status](https://travis-ci.org/LeonMontealegre/OpenCircuits.svg?branch=master)](https://travis-ci.org/LeonMontealegre/OpenCircuits) [![Docker Build Status](https://dockerbuildbadges.quelltext.eu/status.svg?organization=opencircuits&repository=opencircuits)](https://hub.docker.com/r/opencircuits/opencircuits/builds/)
 
 # Website
 
@@ -30,6 +30,7 @@ OpenCircuits is hosted on [GitHub](https://github.com/LeonMontealegre/OpenCircui
 # Contact Us
 
 If you have a question or would like to recommend a feature, please reach out to contact@opencircuits.io
+
 
 ### LICENSING
 OpenCircuits is currently without a license.
